@@ -6,6 +6,10 @@ import Home from './pages/Home'
 import CityAnalysis from './pages/CityAnalysis'
 import Compare from './pages/Compare'
 import Analytics from './pages/Analytics'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import Account from './pages/Account'
+import ApiKeys from './pages/ApiKeys'
 
 export default function App() {
   return (
@@ -18,6 +22,10 @@ export default function App() {
         <Route path="/city/:cityId" element={<CityAnalysis />} />
         <Route path="/compare" element={<Compare />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/account" element={<Account />} />
+        <Route path="/keys" element={<ApiKeys />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Footer />

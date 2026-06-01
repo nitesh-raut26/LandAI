@@ -19,7 +19,7 @@ export default function ApiKeys() {
   const load = () => listApiKeys().then(setKeys).catch(() => {})
   useEffect(() => {
     if (loading) return
-    if (!user) { nav('/login', { state: { from: '/api-keys' } }); return }
+    if (!user) { nav('/login', { state: { from: '/keys' } }); return }
     load()
   }, [user, loading]) // eslint-disable-line
 

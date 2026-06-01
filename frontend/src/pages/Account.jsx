@@ -41,7 +41,7 @@ export default function Account() {
             {user.email[0].toUpperCase()}
           </div>
           <div style={{ flex: 1, minWidth: 160 }}>
-            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)' }}>{user.email}</div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', wordBreak: 'break-all' }}>{user.email}</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
               <span style={{ textTransform: 'capitalize' }}>Role: {user.role}</span>
               <span style={{ background: 'rgba(67,56,202,0.08)', color: 'var(--indigo)', border: '1px solid rgba(67,56,202,0.18)', padding: '1px 9px', borderRadius: 100, fontWeight: 700, textTransform: 'capitalize' }}>{usage?.tier_name || user.subscription_tier}</span>
@@ -79,7 +79,7 @@ export default function Account() {
         </div>
       </div>
 
-      <Link to="/api-keys" style={{ ...card, display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
+      <Link to="/keys" style={{ ...card, display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
         <KeyRound size={18} color="var(--indigo)" />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text-primary)' }}>API keys</div>

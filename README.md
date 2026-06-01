@@ -264,6 +264,19 @@ Base URL: `http://localhost:8000`
 | GET | `/api/system/provenance` | Machine-readable provenance / honesty matrix |
 | GET | `/api/system/metrics` | Per-endpoint latency/errors, cache hit/miss, ingestion failures/retries, model-inference timer |
 | GET | `/api/system/performance` | SLA summary: error rate, p95 by endpoint, cache hit ratio, rate-limited count |
+| GET | `/api/system/auth-metrics` | **Admin** — signups / logins / failures / active keys (aggregate, no PII) |
+
+### Auth &amp; API platform
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/auth/register` · `/login` · `/refresh` | Email + password → JWT access + refresh tokens |
+| GET | `/api/auth/me` | Current user (Bearer token) |
+| POST | `/api/auth/logout` · `/google` | Logout (client-discard) · Google OAuth (scaffold → 501) |
+| GET | `/api/auth/tiers` | Subscription tiers (Developer / Pro / Enterprise) |
+| GET / POST / DELETE | `/api/keys`, `/api/keys/{id}`, `/api/keys/{id}/regenerate` | API-key lifecycle (hashed; secret shown once) |
+| GET | `/api/account/usage`, `/api/account/saved-cities` | Quota usage · persisted saved cities |
+| GET | `/api/v1/city\|ml\|score/{id}` | **Metered Developer API** — requires `X-API-Key`, returns `X-Quota-*` headers |
+| GET / POST | `/api/billing/status`, `/api/billing/webhook` | Billing status + webhook — **architecture only, not live** |
 
 **Example**
 ```bash
@@ -396,7 +409,8 @@ Transparent weighted sub‑scores (ROI/risk/liquidity/demand/future‑dev) + rea
 | Copilot | 🟠 heuristic | ✅ | ✅ | 🟡 | LLM + RAG over provenance |
 | Frontend | 🟢 works | ✅ | ✅ | 🟡 | auth/session; wire ProvenanceStrip into more panels |
 | Data Trust Layer | 🟢 real | ✅ | ✅ | ✅ | deeper per‑panel provenance wiring |
-| AuthN/Z · billing · quotas | ❌ none | ❌ | — | ❌ | the entire monetization layer |
+| Auth (JWT + API keys + quota) | 🟢 real | ✅ | ✅ persisted | 🟡 | RBAC partial; OAuth scaffold; cookie/CSRF hardening |
+| Billing / payments | 🟡 scaffold | — | — | ❌ | **not live** — needs a provider (Stripe/Razorpay) |
 | Persistence (Postgres/Redis/Celery) | 🟡 optional / not running | 🟡 | — | ❌ | wire Celery Beat + Redis + migrations |
 | Observability | 🟢 metrics + request IDs + structured logs | ✅ | — | 🟡 | export to Prometheus / OTel / Grafana at fleet scale |
 
@@ -426,9 +440,70 @@ Transparent weighted sub‑scores (ROI/risk/liquidity/demand/future‑dev) + rea
 | Geo / GeoJSON | ✅ | ✅ | ✅ | 🟡 strip pending | 🟡 |
 | Data Trust Layer | ✅ | ✅ | n/a | ✅ | ✅ |
 | Observability | ✅ | ✅ self | n/a | n/a | 🟡 export pending |
-| Auth / billing | ❌ none | — | — | — | ❌ |
+| Auth + API keys + quota | ✅ | ✅ auth-metrics | ✅ | n/a | 🟡 OAuth/orgs partial |
+| Billing | 🟡 not-live | — | — | — | ❌ |
 
-**Remaining blind spots:** no inbound **auth**; metrics are in‑process (not exported); the **Analytics / Compare / Copilot** panels are not yet provenance‑wrapped; persistence not running.
+**Remaining blind spots:** ~~no inbound auth~~ — ✅ JWT + API keys + quota added (Stage 5); billing is **scaffold-only (not live)**; metrics are in‑process (not exported); **Analytics / Compare / Copilot** panels not yet provenance‑wrapped; OAuth + organizations + Alembic migrations are partial/next.
+
+---
+
+## 🔑 Authentication &amp; API Platform
+
+Identity, API keys, quotas, and a **billing-ready (not billing-live)** subscription layer.
+Persistence is **SQLite by default** (zero-setup) and **Postgres-ready** via `AUTH_DATABASE_URL` /
+`DATABASE_URL` — see [`db.py`](backend/app/db.py).
+
+```mermaid
+flowchart LR
+  U["User"] -->|"email + password"| A["/api/auth — JWT access + refresh"]
+  A --> ME["/api/auth/me"]
+  U -->|"create"| K["/api/keys — hashed, secret shown once"]
+  DEV["Developer / script"] -->|"X-API-Key"| V["/api/v1 metered"]
+  V --> Q{"quota + tier gate"}
+  Q -->|"ok"| R["data + X-Quota-* headers"]
+  Q -->|"exhausted"| E["429 quota_exceeded"]
+```
+
+**API-key lifecycle:** create → secret returned **once** (only a SHA-256 hash is stored) → use via
+`X-API-Key` on `/api/v1/*` → quota decremented per request (daily, tier-based) → regenerate / revoke.
+
+**Subscription tiers** (gating is real; **prices are display-only and never charged**):
+
+| Tier | Daily quota | Rate/min | Features |
+|---|---|---|---|
+| Developer (free) | 1,000 | 30 | live data · forecasts · API keys |
+| Pro | 5,000 | 120 | + advanced forecasts · compare · export · analytics |
+| Enterprise | high | 600 | + org accounts · SLA (price on request) |
+
+### Security philosophy
+- **Passwords** hashed via passlib (`pbkdf2_sha256` default; bcrypt/argon2 swappable) — never plaintext.
+- **JWT** access (30 min) + refresh (14 d); `JWT_SECRET` from env (ephemeral per-process in dev — documented).
+- **Brute-force**: per email+IP login lockout (5 fails / 5 min), plus the inbound per-IP rate limiter.
+- **API keys** stored as SHA-256 hashes; the secret is shown once and never logged.
+- **RBAC**: `user` / `analyst` / `admin`; `/api/system/auth-metrics` is admin-only.
+
+### Honest limitations (implemented vs planned)
+- **Billing is NOT live** — [`app/billing/`](backend/app/billing) is a provider abstraction + webhook-ready stub (`NoopProvider`); no charges occur. Stripe/Razorpay plug in at `service.get_provider()`.
+- **Google OAuth** is **scaffolded, not implemented** (`/api/auth/google` → 501 until configured).
+- **Token revocation** is client-side discard today; a server-side `jti` denylist is next.
+- **Migrations**: dev uses `create_all`; Alembic is the documented production path.
+- **Organizations / teams** are partial (roles exist; org accounts are roadmap).
+
+### Stage 5 enterprise audit
+| System | Honest | Secure | Persistent | Monetizable | Enterprise-ready |
+|---|---|---|---|---|---|
+| Email/password auth (JWT) | ✅ | ✅ hashed + lockout | ✅ | n/a | 🟡 cookie/CSRF · OAuth |
+| API keys + quota | ✅ | ✅ hashed · shown once | ✅ | ✅ metered `/api/v1` | 🟡 |
+| Subscription tiers | ✅ structural | ✅ gating | ✅ | ✅ gating | 🟡 |
+| Billing | ✅ "not live" stated | n/a | event table | ❌ no provider | ❌ |
+| RBAC | ✅ roles | ✅ admin-gated | ✅ | n/a | 🟡 orgs partial |
+| Saved cities / usage | ✅ | ✅ per-user | ✅ | n/a | ✅ |
+
+**Biggest remaining gaps:** live billing provider; production OAuth; refresh-token revocation list;
+organizations/teams; Alembic migrations; move rate-limit + metrics state to Redis for multi-replica.
+
+Setup: copy [`backend/.env.example`](backend/.env.example) → `.env`; set `JWT_SECRET` (required in prod)
+and `AUTH_DATABASE_URL` (Postgres in prod). Tests: `cd backend && ./venv/bin/python -m pytest tests -q` (66 passing).
 
 ---
 
@@ -437,7 +512,7 @@ Transparent weighted sub‑scores (ROI/risk/liquidity/demand/future‑dev) + rea
 - **Inbound rate limiting:** ✅ implemented — an in‑process per‑IP token bucket ([`ratelimit.py`](backend/app/ratelimit.py)): `RATELIMIT_RPM` / `RATELIMIT_BURST`, returns `429` + `Retry-After` + `X-RateLimit-*` headers; health probes and CORS pre‑flight exempt. ⚠️ Single‑instance (move the bucket to Redis for multi‑replica deployments).
 - **Secrets:** env‑driven via `.env` ([`backend/.env.example`](backend/.env.example)); none committed. The OSS open‑data path needs no keys.
 - **CORS:** set in `main.py` (currently permissive `*` for dev — **lock to known origins in prod**).
-- **AuthN/Z:** none yet (roadmap: JWT/OAuth + API keys). Treat the current API as public/unauthenticated.
+- **AuthN/Z:** ✅ JWT auth + hashed API keys + RBAC (`user`/`analyst`/`admin`) — see the Authentication section. The web app's `/api/*` stays open (free/demo tier); the metered `/api/v1/*` requires an API key + quota. OAuth + server-side token revocation are next.
 - **Compliance gate:** `SOURCE_REGISTRY` + fail‑closed `RobotsGate` prevent disallowed fetches — a legal/security control, enforced **and tested**.
 - **Abuse prevention (roadmap):** API keys, quotas, per‑key limits, request signing for enterprise tiers.
 

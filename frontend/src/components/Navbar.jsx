@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, BarChart2, GitCompare, TrendingUp, Menu, X, PieChart } from 'lucide-react'
+import { MapPin, BarChart2, GitCompare, TrendingUp, Menu, X, PieChart, User } from 'lucide-react'
 import { fetchAllCities } from '../utils/api'
 import DataStatusBadge from './DataStatusBadge'
+import { useAuth } from '../context/AuthContext'
 
 const NAV_LINKS = [
   { to: '/',          label: 'Explore Map', icon: MapPin     },
@@ -14,6 +15,7 @@ const NAV_LINKS = [
 
 export default function Navbar() {
   const { pathname } = useLocation()
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [cityCount, setCityCount] = useState(null)
 
@@ -126,6 +128,26 @@ export default function Navbar() {
             <DataStatusBadge kind="curated" compact />
           </div>
 
+          {/* Auth (desktop) */}
+          {user ? (
+            <Link to="/account" className="nav-status" style={{
+              display: 'flex', alignItems: 'center', gap: 7, padding: '4px 11px 4px 4px', borderRadius: 100,
+              border: '1px solid var(--border)', background: 'var(--bg-card)',
+            }}>
+              <span style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg,#4338CA,#0D9488)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>
+                {user.email[0].toUpperCase()}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Account</span>
+            </Link>
+          ) : (
+            <Link to="/login" className="nav-status" style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '7px 15px', borderRadius: 10,
+              background: 'linear-gradient(135deg,#4338CA,#0D9488)', color: '#fff', fontSize: 13.5, fontWeight: 700,
+            }}>
+              Sign in
+            </Link>
+          )}
+
           {/* Mobile burger */}
           <motion.button
             onClick={() => setOpen(v => !v)}
@@ -175,6 +197,12 @@ export default function Navbar() {
                 </Link>
               )
             })}
+            <Link to={user ? '/account' : '/login'} onClick={() => setOpen(false)} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 11, marginTop: 4,
+              color: '#fff', background: 'linear-gradient(135deg,#4338CA,#0D9488)', fontSize: 15, fontWeight: 700,
+            }}>
+              <User size={17} /> {user ? 'Account' : 'Sign in'}
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,0 +1,31 @@
+# ── Web framework ──
+fastapi==0.136.3
+uvicorn[standard]==0.48.0
+pydantic==2.13.4
+python-dotenv==1.2.2
+
+# ── Core numerics / ML ──
+numpy==2.4.6
+scipy==1.17.1
+scikit-learn==1.8.0
+pandas==3.0.3
+xgboost==3.2.0          # land-price growth model (needs libomp on macOS: `brew install libomp`)
+
+# ── Geospatial (shapely engine + optional PostGIS backend) ──
+shapely==2.1.2
+sqlalchemy==2.0.50      # only used when DATABASE_URL is set
+geoalchemy2==0.20.0     # only used when DATABASE_URL is set
+psycopg[binary]==3.3.4  # PostgreSQL driver (PostGIS)
+
+# ── Computer vision (urban-growth raster rendering) ──
+pillow==12.2.0
+
+# ── Real data ingestion (Overpass / Nominatim / open-data feeds) ──
+httpx==0.28.1           # async HTTP client (rate-limited, retrying) for the ingestion layer
+
+# ── Auth / API platform (SQLite-default, Postgres-ready via DATABASE_URL) ──
+python-jose[cryptography]==3.5.0   # JWT access + refresh tokens
+passlib==1.7.4                     # password hashing (pbkdf2_sha256 default; bcrypt/argon2 swappable)
+
+# ── Tests ──
+pytest==9.0.3

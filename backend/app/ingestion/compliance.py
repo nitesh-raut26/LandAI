@@ -1,0 +1,198 @@
+"""
+Compliance & legality gate.
+===========================
+
+This module encodes LAND AI's promise: **we never fetch what we are not
+permitted to fetch.**
+
+Two responsibilities
+--------------------
+1. :data:`SOURCE_REGISTRY` — the single source of truth for every external
+   data source: licence, legal status, attribution string, politeness policy,
+   and default cache TTL. Listing portals whose Terms of Service prohibit
+   automated extraction are registered with ``allowed=False`` so that any
+   adapter targeting them **refuses to run**.
+
+2. :class:`RobotsGate` — a *real* ``robots.txt`` checker (stdlib
+   ``urllib.robotparser``) for web sources, with per-host caching and a
+   fail-closed default (if robots.txt can't be read, we do not fetch).
+"""
+from __future__ import annotations
+
+import threading
+import time
+import urllib.robotparser
+from dataclasses import dataclass
+from urllib.parse import urlsplit
+
+_WEEK = 7 * 24 * 3600
+_MONTH = 30 * 24 * 3600
+
+
+class ComplianceError(RuntimeError):
+    """Raised when an adapter attempts to use a disallowed or unknown source."""
+
+
+@dataclass(frozen=True)
+class SourcePolicy:
+    key: str
+    name: str
+    url: str
+    license: str
+    attribution: str
+    allowed: bool
+    legality_note: str
+    min_interval_seconds: float = 1.0   # politeness: min seconds between requests to this host
+    requires_user_agent: bool = True
+    default_ttl_seconds: int = _WEEK
+    check_robots: bool = False          # web sources -> True; documented APIs -> False
+
+
+# ── The registry. Add a new source here before writing its adapter. ─────────
+SOURCE_REGISTRY: dict[str, SourcePolicy] = {
+    # ── PERMITTED OPEN DATA ──────────────────────────────────────────────
+    "osm_overpass": SourcePolicy(
+        key="osm_overpass",
+        name="OpenStreetMap (Overpass API)",
+        url="https://overpass-api.de/api/interpreter",
+        license="ODbL 1.0",
+        attribution="© OpenStreetMap contributors",
+        allowed=True,
+        legality_note=(
+            "Queried via the public Overpass API under the Open Database "
+            "Licence (ODbL 1.0). Attribution to OpenStreetMap contributors is "
+            "required. Requests are rate-limited per the OSM/Overpass usage policy."
+        ),
+        min_interval_seconds=1.0,
+        default_ttl_seconds=_WEEK,
+        check_robots=False,  # Overpass is a documented public API, not a crawled site
+    ),
+    "osm_nominatim": SourcePolicy(
+        key="osm_nominatim",
+        name="OpenStreetMap (Nominatim)",
+        url="https://nominatim.openstreetmap.org",
+        license="ODbL 1.0",
+        attribution="© OpenStreetMap contributors",
+        allowed=True,
+        legality_note=(
+            "Geocoding via the public Nominatim service under ODbL 1.0. The "
+            "Nominatim usage policy mandates a maximum of ~1 request/second and "
+            "a valid identifying User-Agent."
+        ),
+        min_interval_seconds=1.1,
+        default_ttl_seconds=_MONTH,
+        check_robots=False,
+    ),
+
+    # ── ToS-PROTECTED LISTING PORTALS — DISABLED BY DESIGN ───────────────
+    # Registered (just below) for transparency only. Their Terms of Service
+    # prohibit automated extraction, so allowed=False. The gated adapter that
+    # targets them raises ComplianceError unless a *licensed* feed is configured.
+}
+
+
+def _disabled_listing(key: str, name: str, url: str) -> SourcePolicy:
+    return SourcePolicy(
+        key=key,
+        name=name,
+        url=url,
+        license="Proprietary — all rights reserved by the operator",
+        attribution=name,
+        allowed=False,
+        legality_note=(
+            f"{name}'s Terms of Service prohibit automated access / scraping. "
+            "This source is DISABLED by compliance policy. To enable real "
+            "pricing from this provider you must obtain a licensed data feed or "
+            "official API access and register it as a separate, permitted source."
+        ),
+        min_interval_seconds=5.0,
+        default_ttl_seconds=6 * 3600,
+        check_robots=True,
+    )
+
+
+# replace the placeholder + add the rest of the disabled listing portals
+SOURCE_REGISTRY["99acres"] = _disabled_listing("99acres", "99acres", "https://www.99acres.com")
+SOURCE_REGISTRY["magicbricks"] = _disabled_listing("magicbricks", "MagicBricks", "https://www.magicbricks.com")
+SOURCE_REGISTRY["housing"] = _disabled_listing("housing", "Housing.com", "https://housing.com")
+SOURCE_REGISTRY["commonfloor"] = _disabled_listing("commonfloor", "CommonFloor", "https://www.commonfloor.com")
+
+
+def get_policy(source_key: str) -> SourcePolicy:
+    pol = SOURCE_REGISTRY.get(source_key)
+    if pol is None:
+        raise ComplianceError(
+            f"Unknown source '{source_key}'. Register it in SOURCE_REGISTRY "
+            "(with its licence and legal status) before building an adapter for it."
+        )
+    return pol
+
+
+def require_allowed(source_key: str) -> SourcePolicy:
+    """Return the policy if the source is permitted; otherwise refuse loudly."""
+    pol = get_policy(source_key)
+    if not pol.allowed:
+        raise ComplianceError(
+            f"Source '{source_key}' is DISABLED by compliance policy. "
+            f"{pol.legality_note}"
+        )
+    return pol
+
+
+class RobotsGate:
+    """Real ``robots.txt`` checker with per-host caching. Fail-closed: if a
+    site's robots.txt cannot be retrieved, :meth:`can_fetch` returns ``False``."""
+
+    def __init__(self, user_agent: str, cache_ttl_seconds: int = 3600) -> None:
+        self._ua = user_agent
+        self._ttl = cache_ttl_seconds
+        self._cache: dict[str, tuple[urllib.robotparser.RobotFileParser | None, float]] = {}
+        self._lock = threading.Lock()
+
+    def _parser_for(self, url: str) -> urllib.robotparser.RobotFileParser | None:
+        parts = urlsplit(url)
+        host = f"{parts.scheme}://{parts.netloc}"
+        now = time.time()
+        with self._lock:
+            cached = self._cache.get(host)
+            if cached and (now - cached[1] < self._ttl):
+                return cached[0]
+
+        rp: urllib.robotparser.RobotFileParser | None = urllib.robotparser.RobotFileParser()
+        rp.set_url(f"{host}/robots.txt")
+        try:
+            rp.read()
+        except Exception:
+            rp = None  # unreachable -> fail closed
+
+        with self._lock:
+            self._cache[host] = (rp, now)
+        return rp
+
+    def can_fetch(self, url: str) -> bool:
+        rp = self._parser_for(url)
+        if rp is None:
+            return False  # fail closed
+        try:
+            return rp.can_fetch(self._ua, url)
+        except Exception:
+            return False
+
+
+def registry_view() -> list[dict]:
+    """Public, serialisable view of the registry for ``GET /api/live/sources`` —
+    powers source attribution + transparency in the UI."""
+    return [
+        {
+            "source_key": p.key,
+            "source": p.name,
+            "url": p.url,
+            "license": p.license,
+            "attribution": p.attribution,
+            "allowed": p.allowed,
+            "legality_note": p.legality_note,
+            "min_interval_seconds": p.min_interval_seconds,
+            "default_ttl_seconds": p.default_ttl_seconds,
+        }
+        for p in SOURCE_REGISTRY.values()
+    ]

@@ -1,0 +1,6 @@
+{
+  "name": "landai",
+  "scripts": {
+    "dev": "cd frontend && npm run dev"
+  }
+}

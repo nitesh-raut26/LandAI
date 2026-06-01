@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { KeyRound, LogOut, ShieldCheck, Star, Trash2 } from 'lucide-react'
+import { KeyRound, LayoutDashboard, LogOut, ShieldCheck, Star, Trash2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { fetchUsage, listSavedCities, unsaveCityApi } from '../utils/api'
 
@@ -78,6 +78,15 @@ export default function Account() {
           ))}
         </div>
       </div>
+
+      <Link to="/dashboard" style={{ ...card, display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
+        <LayoutDashboard size={18} color="var(--teal)" />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text-primary)' }}>Dashboard</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Watchlist, comparisons, saved searches &amp; API usage.</div>
+        </div>
+        <span style={{ color: 'var(--teal)', fontWeight: 700 }}>Open →</span>
+      </Link>
 
       <Link to="/keys" style={{ ...card, display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
         <KeyRound size={18} color="var(--indigo)" />

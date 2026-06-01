@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..db import Base
@@ -30,6 +30,9 @@ class User(Base):
 
     api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     saved_cities: Mapped[list["SavedCity"]] = relationship(cascade="all, delete-orphan")
+    watchlist: Mapped[list["WatchlistItem"]] = relationship(cascade="all, delete-orphan")
+    compare_history: Mapped[list["CompareHistory"]] = relationship(cascade="all, delete-orphan")
+    saved_searches: Mapped[list["SavedSearch"]] = relationship(cascade="all, delete-orphan")
 
 
 class ApiKey(Base):
@@ -65,6 +68,46 @@ class SavedCity(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     city_id: Mapped[str] = mapped_column(String(64))
     note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class WatchlistItem(Base):
+    """A lightweight monitored-city list (distinct from SavedCity bookmarks).
+
+    Mirrors the client-side localStorage watchlist so a logged-in user's list
+    syncs across devices; logged-out users keep the local-only list.
+    """
+
+    __tablename__ = "watchlist_items"
+    __table_args__ = (UniqueConstraint("user_id", "city_id", name="uq_watchlist_user_city"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    city_id: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class CompareHistory(Base):
+    """One row per A/B comparison a user runs — powers 'recent comparisons'."""
+
+    __tablename__ = "compare_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    city_a: Mapped[str] = mapped_column(String(64))
+    city_b: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
+
+
+class SavedSearch(Base):
+    """A named, re-runnable search (query text + filters as a JSON blob)."""
+
+    __tablename__ = "saved_searches"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    label: Mapped[str] = mapped_column(String(120), default="")
+    query: Mapped[str] = mapped_column(Text, default="{}")   # JSON: {q, state, tier}
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 

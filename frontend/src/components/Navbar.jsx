@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, BarChart2, GitCompare, TrendingUp, Menu, X, PieChart, User, BookOpen } from 'lucide-react'
+import { MapPin, BarChart2, GitCompare, TrendingUp, Menu, X, PieChart, User, BookOpen, LayoutDashboard } from 'lucide-react'
 import { fetchAllCities } from '../utils/api'
 import DataStatusBadge from './DataStatusBadge'
 import { useAuth } from '../context/AuthContext'
@@ -19,6 +19,11 @@ export default function Navbar() {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [cityCount, setCityCount] = useState(null)
+
+  // Signed-in users get a Dashboard entry alongside the public links.
+  const links = user
+    ? [...NAV_LINKS, { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }]
+    : NAV_LINKS
 
   useEffect(() => {
     let alive = true
@@ -85,7 +90,7 @@ export default function Navbar() {
 
         {/* Desktop links */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }} className="nav-links">
-          {NAV_LINKS.map(({ to, label, icon: Icon }) => {
+          {links.map(({ to, label, icon: Icon }) => {
             const active = isActive(to)
             return (
               <Link key={to} to={to} style={{
@@ -183,7 +188,7 @@ export default function Navbar() {
               boxShadow: 'var(--shadow-lg)',
             }}
           >
-            {NAV_LINKS.map(({ to, label, icon: Icon }) => {
+            {links.map(({ to, label, icon: Icon }) => {
               const active = isActive(to)
               return (
                 <Link key={to} to={to} onClick={() => setOpen(false)} style={{

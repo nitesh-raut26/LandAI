@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { TrendingUp, MapPin, Building, BarChart2, ArrowRight, Zap, Cpu, Navigation, Star } from 'lucide-react'
+import { TrendingUp, MapPin, Building, BarChart2, ArrowRight, Zap, Cpu, Navigation, Star, Bookmark, Check } from 'lucide-react'
 import MapView from '../components/MapView'
 import CitySearch from '../components/CitySearch'
 import CustomSelect from '../components/CustomSelect'
 import CopilotBox from '../components/CopilotBox'
-import { fetchAllCities, tierColor, phaseColor, fetchStates } from '../utils/api'
+import { fetchAllCities, tierColor, phaseColor, fetchStates, getAuthToken, saveSearchApi } from '../utils/api'
 import { useWatchlist } from '../utils/watchlist'
 
 const HIGHLIGHT_CITIES = [
@@ -32,6 +32,16 @@ export default function Home() {
   const [coords, setCoords] = useState(null)
   const [geoStatus, setGeoStatus] = useState('idle') // idle | locating | ok | denied | unsupported
   const navigate = useNavigate()
+  const [sp] = useSearchParams()
+  const [savedSearch, setSavedSearch] = useState(false)
+
+  // Seed filters from the URL (?state=&tier=&phase=) so a saved search "Run"
+  // lands here with its filters applied.
+  useEffect(() => {
+    const s = sp.get('state'); if (s) setFilterState(s)
+    const t = sp.get('tier'); if (t) setFilterTier(t)
+    const p = sp.get('phase'); if (p) setFilterPhase(p)
+  }, []) // eslint-disable-line
 
   useEffect(() => {
     Promise.all([fetchAllCities(), fetchStates()])
@@ -427,6 +437,21 @@ export default function Home() {
               >
                 Clear
               </motion.button>
+            )}
+            {getAuthToken() && anyFilter && (
+              <button
+                className="btn btn-outline"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12.5, height: 36, color: savedSearch ? '#059669' : undefined }}
+                title="Save these filters to your dashboard"
+                onClick={async () => {
+                  try {
+                    await saveSearchApi('', { state: filterState, tier: filterTier, phase: filterPhase })
+                    setSavedSearch(true); setTimeout(() => setSavedSearch(false), 1800)
+                  } catch { /* ignore */ }
+                }}
+              >
+                {savedSearch ? <><Check size={13} /> Saved</> : <><Bookmark size={13} /> Save search</>}
+              </button>
             )}
             <span style={{ marginLeft: 'auto', fontSize: 12.5, color: '#9CA3AF', fontWeight: 500 }}>
               {filtered.length} cities

@@ -10,6 +10,8 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Account from './pages/Account'
 import ApiKeys from './pages/ApiKeys'
+import Dashboard from './pages/Dashboard'
+import Usage from './pages/Usage'
 import Docs from './pages/Docs'
 
 export default function App() {
@@ -26,6 +28,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/account" element={<Account />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/usage" element={<Usage />} />
         <Route path="/keys" element={<ApiKeys />} />
         <Route path="/docs" element={<Docs />} />
         <Route path="*" element={<Navigate to="/" replace />} />

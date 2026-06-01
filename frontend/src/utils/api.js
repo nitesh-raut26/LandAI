@@ -77,6 +77,19 @@ export const listSavedCities = () => api.get('/account/saved-cities').then(r => 
 export const saveCityApi = (city_id, note = '') => api.post('/account/saved-cities', { city_id, note }).then(r => r.data)
 export const unsaveCityApi = (city_id) => api.delete(`/account/saved-cities/${city_id}`).then(r => r.data)
 
+// Persistent product platform: watchlist · compare history · saved searches
+export const listWatchlist = () => api.get('/account/watchlist').then(r => r.data)
+export const addWatchApi = (city_id) => api.post('/account/watchlist', { city_id }).then(r => r.data)
+export const removeWatchApi = (city_id) => api.delete(`/account/watchlist/${city_id}`).then(r => r.data)
+export const listCompareHistory = (limit = 20) => api.get('/account/compare-history', { params: { limit } }).then(r => r.data)
+export const recordCompareApi = (city_a, city_b) => api.post('/account/compare-history', { city_a, city_b }).then(r => r.data)
+export const deleteCompareApi = (id) => api.delete(`/account/compare-history/${id}`).then(r => r.data)
+export const listSavedSearches = () => api.get('/account/saved-searches').then(r => r.data)
+export const saveSearchApi = (label, query) => api.post('/account/saved-searches', { label, query }).then(r => r.data)
+export const deleteSavedSearchApi = (id) => api.delete(`/account/saved-searches/${id}`).then(r => r.data)
+export const fetchDashboard = () => api.get('/account/dashboard').then(r => r.data)
+export const fetchUsageHistory = (days = 30) => api.get('/account/usage-history', { params: { days } }).then(r => r.data)
+
 // ── Fallback-aware wrappers ────────────────────────────────────────────────
 export const fetchAllCities = () =>
   api.get('/cities/').then(r => r.data).catch(() => MOCK_CITIES)

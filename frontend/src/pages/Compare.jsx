@@ -5,7 +5,7 @@ import { GitCompare, Loader2, ArrowRightLeft } from 'lucide-react'
 import CitySearch from '../components/CitySearch'
 import PredictionChart from '../components/PredictionChart'
 import InvestmentScore from '../components/InvestmentScore'
-import { fetchFullAnalysis, tierColor, phaseColor } from '../utils/api'
+import { fetchFullAnalysis, getAuthToken, recordCompareApi, tierColor, phaseColor } from '../utils/api'
 
 export default function Compare() {
   const [sp] = useSearchParams()
@@ -27,6 +27,13 @@ export default function Compare() {
     if (a) loadCity(a, setDataA, setLoadingA)
     if (b) loadCity(b, setDataB, setLoadingB)
   }, [])
+
+  // Record each completed comparison for signed-in users (best-effort; the
+  // backend collapses immediate duplicates so re-renders won't spam history).
+  useEffect(() => {
+    const a = dataA?.city?.id, b = dataB?.city?.id
+    if (a && b && getAuthToken()) recordCompareApi(a, b).catch(() => {})
+  }, [dataA?.city?.id, dataB?.city?.id])
 
   const ACCENT_A = '#4338CA'   // indigo
   const ACCENT_B = '#0D9488'   // teal

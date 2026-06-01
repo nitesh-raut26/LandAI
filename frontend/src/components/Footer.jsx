@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { TrendingUp, Code2, Check, ArrowRight, Cpu, Activity, Satellite, Globe2, Mail, BookOpen } from 'lucide-react'
+import { TrendingUp, Code2, Check, ArrowRight, Cpu, Activity, Satellite, Globe2, Mail, BookOpen, AlertCircle } from 'lucide-react'
 
 const API_BASE = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
   ? 'http://localhost:8000' : '/api-host'
@@ -9,20 +9,22 @@ const TIERS = [
   {
     name: 'Developer', price: '₹0', unit: '/forever', highlight: false,
     blurb: 'For prototypes & evaluation',
-    features: ['1,000 API calls / month', 'All city & prediction endpoints', 'Community support'],
-    cta: 'Start free',
+    // 1,000 req/day  =  tiers.py daily_quota=1_000
+    features: ['1,000 API calls / day', 'All city & prediction endpoints', 'Community support'],
+    cta: 'Start free', ctaTo: '/register',
   },
   {
-    name: 'Pro', price: '₹4,999', unit: '/month', highlight: true,
+    name: 'Pro', price: '₹1,499', unit: '/month', highlight: true,
     blurb: 'For products & startups',
-    features: ['100,000 API calls / month', 'XGBoost · NLP · CV · GeoJSON', 'Commercial license', 'Email support'],
-    cta: 'Get API key',
+    // 5,000 req/day / 50,000 req/month  =  tiers.py
+    features: ['5,000 API calls / day (50,000 / month)', 'XGBoost · NLP · CV · GeoJSON', 'Advanced forecasts + export', 'Email support'],
+    cta: 'Get API key', ctaTo: '/register',
   },
   {
     name: 'Enterprise', price: 'Custom', unit: '', highlight: false,
     blurb: 'For platforms & institutions',
-    features: ['Unlimited calls + SLA', 'Bulk data export & PostGIS', 'Dedicated support & onboarding'],
-    cta: 'Contact sales',
+    features: ['High-volume + SLA', 'Org accounts & team analytics', 'Dedicated support & onboarding'],
+    cta: 'Contact sales', ctaTo: 'mailto:api@landai.in',
   },
 ]
 
@@ -61,10 +63,10 @@ export default function Footer() {
             <a href="mailto:api@landai.in?subject=LandAI%20API%20key" className="btn btn-teal" style={{ textDecoration: 'none' }}>
               <Mail size={15} /> Get an API key
             </a>
-            <a href={`${API_BASE}/docs`} target="_blank" rel="noreferrer" className="btn btn-outline"
+            <Link to="/docs" className="btn btn-outline"
                style={{ textDecoration: 'none', background: 'transparent', color: '#C7CBD1', borderColor: 'rgba(255,255,255,0.18)' }}>
               <BookOpen size={15} /> API docs
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -81,6 +83,11 @@ export default function Footer() {
           ))}
         </div>
 
+        {/* billing not-live disclaimer */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '8px 14px', fontSize: 12.5, color: '#D97706' }}>
+          <AlertCircle size={14} style={{ flexShrink: 0 }} />
+          <span>Billing is <strong>not live</strong> — prices shown are the planned architecture only. No charges occur today. <Link to="/register" style={{ color: '#D97706', fontWeight: 700 }}>Create a free account</Link> to get started.</span>
+        </div>
         {/* pricing tiers */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 8 }}>
           {TIERS.map(t => (
@@ -111,16 +118,24 @@ export default function Footer() {
                   </div>
                 ))}
               </div>
-              <a href={`mailto:api@landai.in?subject=LandAI API — ${t.name} plan`} style={{ textDecoration: 'none' }}>
-                <div className="btn" style={{
-                  width: '100%',
-                  background: t.highlight ? 'linear-gradient(135deg,#14B8A6,#0D9488)' : 'transparent',
-                  color: t.highlight ? '#fff' : '#C7CBD1',
-                  border: t.highlight ? 'none' : '1px solid rgba(255,255,255,0.18)',
-                }}>
-                  {t.cta} <ArrowRight size={14} />
-                </div>
-              </a>
+              {t.ctaTo?.startsWith('mailto') ? (
+                <a href={t.ctaTo} style={{ textDecoration: 'none' }}>
+                  <div className="btn" style={{ width: '100%', background: 'transparent', color: '#C7CBD1', border: '1px solid rgba(255,255,255,0.18)' }}>
+                    {t.cta} <ArrowRight size={14} />
+                  </div>
+                </a>
+              ) : (
+                <Link to={t.ctaTo || '/register'} style={{ textDecoration: 'none' }}>
+                  <div className="btn" style={{
+                    width: '100%',
+                    background: t.highlight ? 'linear-gradient(135deg,#14B8A6,#0D9488)' : 'transparent',
+                    color: t.highlight ? '#fff' : '#C7CBD1',
+                    border: t.highlight ? 'none' : '1px solid rgba(255,255,255,0.18)',
+                  }}>
+                    {t.cta} <ArrowRight size={14} />
+                  </div>
+                </Link>
+              )}
             </motion.div>
           ))}
         </div>
@@ -150,7 +165,7 @@ export default function Footer() {
 
           {[
             { h: 'Product', links: [['Explore Map', '/'], ['City Analysis', '/city/tirupati'], ['Compare Cities', '/compare']] },
-            { h: 'Developers', links: [['API Docs', `${API_BASE}/docs`, true], ['Pricing', '#developers'], ['Get API Key', 'mailto:api@landai.in', true]] },
+            { h: 'Developers', links: [['API Docs', '/docs'], ['Pricing', '#developers'], ['Register free', '/register'], ['Get API Key', 'mailto:api@landai.in', true]] },
             { h: 'Company', links: [['About', '#'], ['Vision', '#'], ['Contact', 'mailto:api@landai.in', true]] },
           ].map(col => (
             <div key={col.h}>

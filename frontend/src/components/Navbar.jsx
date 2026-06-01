@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, BarChart2, GitCompare, TrendingUp, Menu, X, PieChart, User } from 'lucide-react'
+import { MapPin, BarChart2, GitCompare, TrendingUp, Menu, X, PieChart, User, BookOpen } from 'lucide-react'
 import { fetchAllCities } from '../utils/api'
 import DataStatusBadge from './DataStatusBadge'
 import { useAuth } from '../context/AuthContext'
@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { to: '/analytics', label: 'Analytics',   icon: PieChart   },
   { to: '/city',      label: 'Analysis',    icon: BarChart2  },
   { to: '/compare',   label: 'Compare',     icon: GitCompare },
+  { to: '/docs',      label: 'API Docs',    icon: BookOpen   },
 ]
 
 export default function Navbar() {

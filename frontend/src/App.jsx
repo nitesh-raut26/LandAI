@@ -10,6 +10,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Account from './pages/Account'
 import ApiKeys from './pages/ApiKeys'
+import Docs from './pages/Docs'
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/account" element={<Account />} />
         <Route path="/keys" element={<ApiKeys />} />
+        <Route path="/docs" element={<Docs />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Footer />

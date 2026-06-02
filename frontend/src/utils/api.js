@@ -108,6 +108,9 @@ export const fetchModelCard = () => api.get('/ml/model-info').then(r => r.data)
 export const fetchLeakageAudit = () => api.get('/ml/leakage-audit').then(r => r.data)
 export const fetchModelRegistry = () => api.get('/ml/registry').then(r => r.data)
 export const fetchDriftBaseline = () => api.get('/ml/drift').then(r => r.data)
+export const promoteModel = (version) => api.post(`/ml/registry/${version}/promote`).then(r => r.data)
+export const archiveModel = (version) => api.post(`/ml/registry/${version}/archive`).then(r => r.data)
+export const fetchObservability = () => api.get('/system/observability').then(r => r.data)
 
 // ── Fallback-aware wrappers ────────────────────────────────────────────────
 export const fetchAllCities = () =>

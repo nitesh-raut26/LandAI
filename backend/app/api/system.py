@@ -8,21 +8,21 @@ present curated or offline data as live.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .. import ratelimit, store
+from .. import obs, ratelimit, store
 from ..auth import analytics
 from ..auth import audit as audit_log
 from ..auth.dependencies import require_role
 from ..auth.models import ApiKey, RefreshSession, UsageLog, User
-from ..db import get_db
+from ..db import get_db, schema_status
 from ..geo.db import spatial_backend_status
 from ..ingestion import config as ing_config
 from ..ingestion.compliance import registry_view
 from ..ingestion.provenance import utcnow_iso
-from ..metrics import METRICS
+from ..metrics import METRICS, prometheus_text
 
 router = APIRouter(prefix="/system", tags=["system"])
 
@@ -118,7 +118,7 @@ def status():
     except Exception as exc:  # pragma: no cover - defensive
         model = {"loaded": False, "error": type(exc).__name__}
 
-    return {**health(), "model": model, "subsystems": DATA_CLASSES}
+    return {**health(), "model": model, "schema": schema_status(), "subsystems": DATA_CLASSES}
 
 
 @router.get("/sources")
@@ -142,6 +142,19 @@ def metrics():
     snap["shared_state_backend"] = store.backend_name()
     snap["distributed"] = store.is_distributed()
     return snap
+
+
+@router.get("/metrics.prom")
+def metrics_prometheus():
+    """Prometheus text-exposition of this instance's metrics (scrape per replica)."""
+    body = prometheus_text({"landai_shared_state_distributed": 1 if store.is_distributed() else 0})
+    return Response(content=body, media_type="text/plain; version=0.0.4; charset=utf-8")
+
+
+@router.get("/observability")
+def observability():
+    """What observability is actually wired (honest, env-gated) — not aspirational."""
+    return obs.observability_status()
 
 
 @router.get("/performance")

@@ -45,6 +45,14 @@ def is_distributed() -> bool:
     return _redis is not None
 
 
+def use_redis(client) -> None:
+    """Inject (or clear) the Redis client at runtime. Used to re-point at a real
+    Redis, and by tests to drive the Redis code path with fakeredis. Pass None to
+    fall back to the in-process store."""
+    global _redis
+    _redis = client
+
+
 # ── in-process fallback (TTL dict) ──────────────────────────────────────────
 _local: dict[str, tuple[float, int]] = {}   # key -> (expires_at_epoch | 0, int value)
 _flags: dict[str, float] = {}               # key -> expires_at_epoch (denylist marks)
@@ -95,7 +103,7 @@ def get_int(key: str) -> int:
 def mark(key: str, ttl: int) -> None:
     """Set a presence flag (used by the denylist) with a TTL in seconds."""
     if _redis is not None:  # pragma: no cover
-        _redis.setex(key, ttl, "1")
+        _redis.set(key, "1", ex=ttl)
         return
     with _lock:
         _flags[key] = time.time() + ttl

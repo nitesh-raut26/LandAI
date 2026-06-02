@@ -84,3 +84,30 @@ def list_models(db: Session) -> list[dict[str, Any]]:
 
 def get_version(db: Session, version: str) -> ModelRegistry | None:
     return db.scalar(select(ModelRegistry).where(ModelRegistry.version == version))
+
+
+def set_status(db: Session, version: str, status: str) -> ModelRegistry | None:
+    row = get_version(db, version)
+    if not row:
+        return None
+    row.status = status
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def promote(db: Session, version: str) -> ModelRegistry | None:
+    """Promote a version to production; archive any other production model.
+    Rolling back is just promoting an earlier version, so this serves both."""
+    row = get_version(db, version)
+    if not row:
+        return None
+    others = db.scalars(
+        select(ModelRegistry).where(ModelRegistry.status == "production", ModelRegistry.version != version)
+    ).all()
+    for other in others:
+        other.status = "archived"
+    row.status = "production"
+    db.commit()
+    db.refresh(row)
+    return row

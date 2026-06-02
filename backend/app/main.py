@@ -25,9 +25,28 @@ from .billing.webhooks import router as billing_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Observability first: structured logging (LOG_JSON) + error tracking (SENTRY_DSN).
+    try:
+        from . import obs
+
+        obs.configure_logging()
+        obs.init_error_tracking()
+    except Exception:
+        pass
     # Create auth/platform tables (SQLite by default; Postgres via DATABASE_URL).
     try:
         init_db()
+    except Exception:
+        pass
+    # Startup migration health check — warn (never block) if the DB is behind head.
+    try:
+        import logging
+
+        from .db import schema_status
+
+        st = schema_status()
+        if st.get("alembic") == "behind":
+            logging.getLogger("landai").warning("DB schema is behind Alembic head: %s", st)
     except Exception:
         pass
     # Seed PostGIS if a database is attached (no-op for the default in-memory setup)

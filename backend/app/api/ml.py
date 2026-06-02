@@ -3,6 +3,8 @@ import time
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from ..auth.dependencies import require_role
+from ..auth.models import User
 from ..data.cities_data import get_city
 from ..db import get_db
 from ..metrics import METRICS
@@ -38,6 +40,26 @@ def ml_registry_version(version: str, db: Session = Depends(get_db)):
     if not row:
         raise HTTPException(404, f"Model version '{version}' not found")
     return model_registry.to_dict(row)
+
+
+@router.post("/registry/{version}/promote")
+def ml_registry_promote(version: str, _admin: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
+    """Promote a model version to production (archives the prior production model).
+    Rolling back = promoting an earlier version. **Admin only.**"""
+    model_registry.register_if_absent(db)
+    row = model_registry.promote(db, version)
+    if not row:
+        raise HTTPException(404, f"Model version '{version}' not found")
+    return {"ok": True, "version": version, "status": row.status, "models": model_registry.list_models(db)}
+
+
+@router.post("/registry/{version}/archive")
+def ml_registry_archive(version: str, _admin: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
+    """Archive a model version (take it out of rotation). **Admin only.**"""
+    row = model_registry.set_status(db, version, "archived")
+    if not row:
+        raise HTTPException(404, f"Model version '{version}' not found")
+    return {"ok": True, "version": version, "status": row.status}
 
 
 @router.get("/drift")

@@ -23,7 +23,9 @@ import app.ml.registry  # noqa: E402,F401  (register model_registry table on Bas
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False: never silence the app's loggers if alembic
+    # is ever invoked in-process (e.g. a startup migration).
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 DB_URL = os.getenv("AUTH_DATABASE_URL") or os.getenv("DATABASE_URL") or AUTH_DATABASE_URL

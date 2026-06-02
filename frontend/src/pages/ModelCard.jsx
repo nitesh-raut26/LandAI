@@ -1,21 +1,25 @@
 import { useEffect, useState } from 'react'
 import { BadgeCheck, Boxes, CheckCircle2, ShieldCheck, XCircle } from 'lucide-react'
-import { fetchDriftBaseline, fetchLeakageAudit, fetchModelCard, fetchModelRegistry } from '../utils/api'
+import { fetchDriftBaseline, fetchLeakageAudit, fetchModelCard, fetchModelRegistry, promoteModel } from '../utils/api'
+import { useAuth } from '../context/AuthContext'
 
 const card = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 22px', boxShadow: 'var(--shadow-sm)' }
 
 export default function ModelCard() {
+  const { user } = useAuth()
   const [info, setInfo] = useState(null)
   const [audit, setAudit] = useState(null)
   const [registry, setRegistry] = useState([])
   const [drift, setDrift] = useState(null)
 
+  const loadRegistry = () => fetchModelRegistry().then((d) => setRegistry(d.models || [])).catch(() => {})
   useEffect(() => {
     fetchModelCard().then(setInfo).catch(() => {})
     fetchLeakageAudit().then(setAudit).catch(() => {})
-    fetchModelRegistry().then((d) => setRegistry(d.models || [])).catch(() => {})
+    loadRegistry()
     fetchDriftBaseline().then(setDrift).catch(() => {})
   }, [])
+  const promote = async (version) => { await promoteModel(version).catch(() => {}); loadRegistry() }
 
   if (!info) return <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>Loading model card…</div>
 
@@ -131,8 +135,11 @@ export default function ModelCard() {
               {registry.map((m) => (
                 <div key={m.version} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-base)', border: '1px solid var(--border-faint)', borderRadius: 10, padding: '8px 12px' }}>
                   <code style={{ fontSize: 11.5, color: 'var(--text-primary)', fontWeight: 600 }}>{m.version}</code>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#059669', background: 'rgba(5,150,105,0.08)', borderRadius: 100, padding: '1px 8px' }}>{m.status}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: m.status === 'production' ? '#059669' : 'var(--text-muted)', background: m.status === 'production' ? 'rgba(5,150,105,0.08)' : 'var(--bg-subtle)', borderRadius: 100, padding: '1px 8px' }}>{m.status}</span>
                   <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--text-muted)' }}>cv R² {m.metrics?.cv_r2_5fold ?? '—'}</span>
+                  {user?.role === 'admin' && m.status !== 'production' && (
+                    <button onClick={() => promote(m.version)} title="Promote to production (rollback to this version)" style={{ fontSize: 11, fontWeight: 600, color: 'var(--indigo)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '3px 9px', cursor: 'pointer' }}>Set production</button>
+                  )}
                 </div>
               ))}
             </div>

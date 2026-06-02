@@ -46,3 +46,30 @@ def init_db() -> None:
     from .ml import registry as _registry  # noqa: F401  (register model_registry table)
 
     Base.metadata.create_all(bind=engine)
+
+
+def schema_status() -> dict:
+    """Best-effort migration health: is the DB at the Alembic head revision?
+
+    Honest about the dev default: a create_all database has no alembic_version,
+    so we report ``not-initialised`` (and how to adopt migrations) rather than
+    pretending the schema is governed. Never raises."""
+    try:
+        import os
+
+        from alembic.config import Config
+        from alembic.migration import MigrationContext
+        from alembic.script import ScriptDirectory
+
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        cfg = Config(os.path.join(backend_dir, "alembic.ini"))
+        cfg.set_main_option("script_location", os.path.join(backend_dir, "migrations"))
+        head = ScriptDirectory.from_config(cfg).get_current_head()
+        with engine.connect() as conn:
+            current = MigrationContext.configure(conn).get_current_revision()
+        if current is None:
+            return {"alembic": "not-initialised", "current": None, "head": head,
+                    "note": "DB built via create_all (dev). Run `alembic stamp head` to adopt migrations."}
+        return {"alembic": "up-to-date" if current == head else "behind", "current": current, "head": head}
+    except Exception as exc:  # pragma: no cover - defensive
+        return {"alembic": "unknown", "error": type(exc).__name__}

@@ -19,11 +19,16 @@ import threading
 import time
 import uuid
 from collections import defaultdict, deque
+from contextvars import ContextVar
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 log = logging.getLogger("landai.request")
+
+# Correlation id for the in-flight request — readable by any logger via the
+# structured-logging filter (see app.obs). Defaults to "-" outside a request.
+request_id_ctx: ContextVar[str] = ContextVar("request_id", default="-")
 
 
 class _EndpointStat:
@@ -110,31 +115,85 @@ class Metrics:
 METRICS = Metrics()
 
 
+# ── Prometheus text exposition (dependency-free) ────────────────────────────
+def _prom_escape(v: str) -> str:
+    return v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
+
+
+def prometheus_text(extra_gauges: dict[str, float] | None = None) -> str:
+    """Render the current metrics snapshot in Prometheus text-exposition format
+    (v0.0.4) — scrapeable by Prometheus/Grafana without any extra dependency."""
+    snap = METRICS.snapshot()
+    out: list[str] = []
+
+    def block(name: str, mtype: str, help_: str) -> None:
+        out.append(f"# HELP {name} {help_}")
+        out.append(f"# TYPE {name} {mtype}")
+
+    block("landai_uptime_seconds", "gauge", "Process uptime in seconds.")
+    out.append(f"landai_uptime_seconds {snap['uptime_seconds']}")
+    block("landai_requests_total", "counter", "Total HTTP requests handled (this process).")
+    out.append(f"landai_requests_total {snap['total_requests']}")
+    block("landai_errors_total", "counter", "Total 5xx responses (this process).")
+    out.append(f"landai_errors_total {snap['total_errors']}")
+
+    if snap["counters"]:
+        block("landai_counter", "counter", "Named application counters.")
+        for k, v in sorted(snap["counters"].items()):
+            out.append(f'landai_counter{{name="{_prom_escape(k)}"}} {v}')
+
+    if snap["endpoints"]:
+        block("landai_endpoint_requests_total", "counter", "Per-endpoint request count.")
+        for k, s in snap["endpoints"].items():
+            out.append(f'landai_endpoint_requests_total{{endpoint="{_prom_escape(k)}"}} {s["count"]}')
+        block("landai_endpoint_latency_p95_ms", "gauge", "Per-endpoint p95 latency (ms).")
+        for k, s in snap["endpoints"].items():
+            if s.get("p95_ms") is not None:
+                out.append(f'landai_endpoint_latency_p95_ms{{endpoint="{_prom_escape(k)}"}} {s["p95_ms"]}')
+
+    if snap["timers"]:
+        block("landai_timer_avg_ms", "gauge", "Named timer average duration (ms).")
+        for k, t in snap["timers"].items():
+            out.append(f'landai_timer_avg_ms{{name="{_prom_escape(k)}"}} {t["avg_ms"]}')
+
+    for name, val in (extra_gauges or {}).items():
+        block(name, "gauge", "Runtime gauge.")
+        out.append(f"{name} {val}")
+
+    return "\n".join(out) + "\n"
+
+
 class RequestMetricsMiddleware(BaseHTTPMiddleware):
     """Assigns a request id, times every request, records per-route metrics, and
     emits a structured log line. Adds X-Request-ID + X-Response-Time-ms headers."""
 
     async def dispatch(self, request: Request, call_next):
-        rid = uuid.uuid4().hex[:12]
+        # Propagate an upstream correlation id if present (distributed tracing);
+        # otherwise mint one. Bound to a contextvar so every log line carries it.
+        rid = (request.headers.get("x-request-id") or request.headers.get("x-correlation-id") or uuid.uuid4().hex[:12])[:64]
         request.state.request_id = rid
+        token = request_id_ctx.set(rid)
         t0 = time.perf_counter()
         try:
-            response = await call_next(request)
-        except Exception:
-            ms = (time.perf_counter() - t0) * 1000
-            METRICS.record_request(self._key(request), ms, True)
-            METRICS.incr("unhandled_exception")
-            log.warning('%s', {"req_id": rid, "method": request.method, "path": request.url.path, "status": 500, "ms": round(ms, 1)})
-            raise
+            try:
+                response = await call_next(request)
+            except Exception:
+                ms = (time.perf_counter() - t0) * 1000
+                METRICS.record_request(self._key(request), ms, True)
+                METRICS.incr("unhandled_exception")
+                log.warning('%s', {"req_id": rid, "method": request.method, "path": request.url.path, "status": 500, "ms": round(ms, 1)})
+                raise
 
-        ms = (time.perf_counter() - t0) * 1000
-        METRICS.record_request(self._key(request), ms, response.status_code >= 500)
-        if response.status_code == 429:
-            METRICS.incr("ratelimited")
-        response.headers["X-Request-ID"] = rid
-        response.headers["X-Response-Time-ms"] = str(round(ms, 1))
-        log.info('%s', {"req_id": rid, "method": request.method, "path": request.url.path, "status": response.status_code, "ms": round(ms, 1)})
-        return response
+            ms = (time.perf_counter() - t0) * 1000
+            METRICS.record_request(self._key(request), ms, response.status_code >= 500)
+            if response.status_code == 429:
+                METRICS.incr("ratelimited")
+            response.headers["X-Request-ID"] = rid
+            response.headers["X-Response-Time-ms"] = str(round(ms, 1))
+            log.info('%s', {"req_id": rid, "method": request.method, "path": request.url.path, "status": response.status_code, "ms": round(ms, 1)})
+            return response
+        finally:
+            request_id_ctx.reset(token)
 
     @staticmethod
     def _key(request: Request) -> str:

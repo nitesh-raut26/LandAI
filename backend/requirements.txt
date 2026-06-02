@@ -26,6 +26,8 @@ httpx==0.28.1           # async HTTP client (rate-limited, retrying) for the ing
 # ── Auth / API platform (SQLite-default, Postgres-ready via DATABASE_URL) ──
 python-jose[cryptography]==3.5.0   # JWT access + refresh tokens
 passlib==1.7.4                     # password hashing (pbkdf2_sha256 default; bcrypt/argon2 swappable)
+alembic==1.18.4                    # DB migrations (production path; dev/tests still use create_all)
+redis==8.0.0                       # OPTIONAL: distributed auth/rate-limit state when REDIS_URL is set
 
 # ── Tests ──
 pytest==9.0.3

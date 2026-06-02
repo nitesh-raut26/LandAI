@@ -19,6 +19,8 @@ Design notes
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import threading
 from typing import Any
@@ -37,27 +39,71 @@ except Exception:  # pragma: no cover
 
 from sklearn.ensemble import GradientBoostingRegressor
 
+# ── leakage-audited feature set ─────────────────────────────────────────────
+# Target = land-price CAGR 2010→2021. To avoid temporal leakage, ACTIVE features
+# must carry only information from BEFORE the target window (≈2001) or be truly
+# structural/slow-moving geography. Features measured at 2021, computed over a
+# window overlapping 2010–2021, or that are outcome-aligned were REMOVED — even
+# though they inflate apparent skill. This is the honest fix: metrics drop, trust
+# rises. See leakage_report().
 FEATURE_NAMES = [
     "tier",
-    "log_population_2021",
-    "population_cagr_01_21",
-    "urban_area_cagr_01_21",
-    "population_density",
+    "log_population_2001",
+    "population_density_2001",
     "has_railway",
     "has_airport",
     "num_national_highways",
     "has_university",
     "has_medical_college",
-    "num_govt_schemes",
-    "has_smart_city",
-    "dist_to_metro_km",
-    "infrastructure_score",
-    "connectivity_score",
-    "economic_score",
-    "growth_phase_rank",
 ]
 
-_PHASE_RANK = {"emerging": 0, "accelerating": 1, "maturing": 2, "mature": 3}
+# Removed features + why (the leakage audit, surfaced via /api/ml/leakage-audit).
+EXCLUDED_FEATURES: dict[str, str] = {
+    "log_population_2021": "measured at the label end (2021) — overlaps target window 2010–2021",
+    "population_cagr_01_21": "2001–2021 window overlaps the 2010–2021 target",
+    "urban_area_cagr_01_21": "2001–2021 window overlaps the 2010–2021 target",
+    "population_density_2021": "2021 snapshot — overlaps target window",
+    "num_govt_schemes": "many schemes post-date 2010 (inside the target window)",
+    "has_smart_city": "Smart Cities Mission began 2015 — inside the target window",
+    "dist_to_metro_km": "most metro lines were built within 2010–2021 — contemporaneous with target",
+    "infrastructure_score": "curated current (≈2021) score — outcome-aligned",
+    "connectivity_score": "curated current (≈2021) score — outcome-aligned",
+    "economic_score": "curated current (≈2021) score — outcome-aligned",
+    "growth_phase_rank": "a current growth-phase label ≈ the target itself (severe leakage)",
+}
+
+
+def features_hash() -> str:
+    return hashlib.sha256(json.dumps(FEATURE_NAMES, sort_keys=True).encode()).hexdigest()[:12]
+
+
+def model_version() -> str:
+    # v2 = post-leakage-fix structural model (v1 was the leaky cross-sectional fit).
+    return f"v2-structural-{features_hash()}"
+
+
+def leakage_report() -> dict[str, Any]:
+    """Machine-readable leakage audit + honest temporal-validation statement."""
+    overlap = sorted(set(FEATURE_NAMES) & set(EXCLUDED_FEATURES))
+    return {
+        "target": "land-price CAGR 2010–2021",
+        "feature_information_cutoff": "≈2001 / structural (pre-target)",
+        "active_features": list(FEATURE_NAMES),
+        "excluded_features": EXCLUDED_FEATURES,
+        "leakage_detected": bool(overlap),
+        "leaking_features": overlap,
+        "temporal_validation": (
+            "True walk-forward/temporal CV needs a multi-year panel; this dataset has "
+            "only 2001 & 2021 snapshots, so a per-time-step holdout is not possible. "
+            "We instead REMOVE label-window features (see excluded_features) and validate "
+            "with repeated K-fold across cities. Collecting an annual price/feature panel "
+            "to enable walk-forward validation is the documented next step."
+        ),
+        "honesty_note": (
+            "Removing leaky features lowers headline R² versus the previous model — that "
+            "is the metric becoming truthful, not a regression."
+        ),
+    }
 
 # Conformal prediction: 1 - alpha = nominal coverage of the prediction interval.
 _CONFORMAL_ALPHA = 0.10  # 90% nominal coverage
@@ -85,34 +131,24 @@ def _cagr(start: float, end: float, years: int) -> float:
 
 
 def featurize(city: dict) -> list[float]:
-    """Build the model feature vector for a single city."""
+    """Build the leakage-audited feature vector — structural / ≈2001 information
+    only (no 2021 snapshots, no label-window-overlapping CAGRs, no growth phase)."""
     pop = city["population"]
     area = city["urban_area_sqkm"]
     infra = city["infrastructure"]
-    scores = city["scores"]
-    schemes = city.get("government_schemes", [])
 
-    pop21, pop01 = pop["2021"], pop["2001"]
-    area21, area01 = area["2021"], area["2001"]
+    pop01 = pop["2001"]
+    area01 = area["2001"]
 
     return [
         float(city["tier"]),
-        math.log(max(pop21, 1)),
-        _cagr(pop01, pop21, 20),
-        _cagr(area01, area21, 20),
-        pop21 / max(area21, 0.1),
+        math.log(max(pop01, 1)),
+        pop01 / max(area01, 0.1),
         1.0 if infra["has_railway"] else 0.0,
         1.0 if infra["has_airport"] else 0.0,
         float(infra["num_national_highways"]),
         1.0 if infra["has_university"] else 0.0,
         1.0 if infra["has_medical_college"] else 0.0,
-        float(len(schemes)),
-        1.0 if "Smart City" in schemes else 0.0,
-        float(city["dist_to_metro_km"]),
-        float(scores["infrastructure"]),
-        float(scores["connectivity"]),
-        float(scores["economic_activity"]),
-        float(_PHASE_RANK.get(city["growth_phase"], 1)),
     ]
 
 
@@ -167,6 +203,7 @@ class _ModelBundle:
             {"feature": FEATURE_NAMES[i], "importance": round(float(imp[i]), 4)}
             for i in order
         ]
+        cv_mean, cv_std = self._cv_r2_repeated(X, y)
         self.metrics = {
             "backend": self.backend,
             "n_samples": int(len(cities)),
@@ -174,6 +211,8 @@ class _ModelBundle:
             "target": "historical land-price CAGR 2010-2021",
             "train_r2": round(r2, 3),
             "cv_r2_5fold": round(self._cv_r2(X, y), 3),
+            "cv_r2_repeated_mean": round(cv_mean, 3),
+            "cv_r2_repeated_std": round(cv_std, 3),
             "rmse": round(rmse, 4),
             "mae": round(mae, 4),
         }
@@ -225,18 +264,35 @@ class _ModelBundle:
         except Exception:
             return 0.0
 
+    @staticmethod
+    def _cv_r2_repeated(X: np.ndarray, y: np.ndarray, seeds=(42, 7, 123)) -> tuple[float, float]:
+        """Repeated K-fold across multiple seeds — honest about CV variance on a
+        small (n≈116) sample. Returns (mean, std) of the per-seed mean R²."""
+        try:
+            from sklearn.model_selection import KFold, cross_val_score
+
+            means = []
+            for s in seeds:
+                kf = KFold(n_splits=5, shuffle=True, random_state=s)
+                means.append(float(np.mean(cross_val_score(_new_estimator(), X, y, cv=kf, scoring="r2"))))
+            return float(np.mean(means)), float(np.std(means))
+        except Exception:
+            return 0.0, 0.0
+
 
 _BUNDLE = _ModelBundle()
 
 
 def model_info() -> dict[str, Any]:
-    """Global model card: metrics + feature importances."""
+    """Global model card: version, metrics, feature importances, leakage audit."""
     _BUNDLE.ensure_trained()
     return {
+        "model_version": model_version(),
         **_BUNDLE.metrics,
         "conformal": _BUNDLE.conformal,
         "features": FEATURE_NAMES,
         "feature_importances": _BUNDLE.importances,
+        "leakage_audit": leakage_report(),
     }
 
 

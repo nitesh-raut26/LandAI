@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, BarChart2, GitCompare, TrendingUp, Menu, X, PieChart, User, BookOpen, LayoutDashboard } from 'lucide-react'
+import { MapPin, BarChart2, GitCompare, TrendingUp, Menu, X, PieChart, User, BookOpen, LayoutDashboard, ShieldCheck } from 'lucide-react'
 import { fetchAllCities } from '../utils/api'
 import DataStatusBadge from './DataStatusBadge'
 import { useAuth } from '../context/AuthContext'
@@ -20,9 +20,13 @@ export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [cityCount, setCityCount] = useState(null)
 
-  // Signed-in users get a Dashboard entry alongside the public links.
+  // Signed-in users get a Dashboard entry; admins also get the Admin console.
   const links = user
-    ? [...NAV_LINKS, { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }]
+    ? [
+        ...NAV_LINKS,
+        { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        ...(user.role === 'admin' ? [{ to: '/admin', label: 'Admin', icon: ShieldCheck }] : []),
+      ]
     : NAV_LINKS
 
   useEffect(() => {
@@ -214,7 +218,10 @@ export default function Navbar() {
       </AnimatePresence>
 
       <style>{`
-        @media (max-width: 640px) {
+        /* Collapse to the burger menu below 1024px: the full link row + status +
+           account button don't fit on tablet widths (worse now with Dashboard/Admin
+           links), which caused horizontal overflow on every page. */
+        @media (max-width: 1024px) {
           .nav-links  { display: none !important; }
           .nav-status { display: none !important; }
           .nav-burger { display: flex !important; }

@@ -442,6 +442,32 @@ input::placeholder { color: var(--text-disabled); }
   .card   { padding: 14px; }
 }
 
+/* ── Responsive safety net for inline grids ──────────────────────────────
+   Many panels set grid-template-columns inline (2/3/4 fixed cols), which the
+   class-based media queries above can't reach. These attribute-selector rules
+   collapse those hardcoded grids on smaller screens; `!important` overrides the
+   inline declaration (inline carries no !important). Fluid auto-fit/auto-fill
+   grids are intentionally NOT matched, so they keep flowing naturally. */
+@media (max-width: 1024px) {
+  [style*="grid-template-columns: repeat(4"] { grid-template-columns: 1fr 1fr !important; }
+}
+@media (max-width: 760px) {
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns: 1fr auto 1fr"],
+  [style*="grid-template-columns: repeat(3"],
+  [style*="grid-template-columns: repeat(4"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Compare page: explicit responsive grids (robust regardless of the net above). */
+.compare-selectors { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; align-items: flex-start; }
+@media (max-width: 760px) {
+  .compare-selectors { grid-template-columns: 1fr; gap: 4px; }
+  .compare-swap { padding: 6px 0 !important; }
+  .compare-swap > div { transform: rotate(90deg); }
+}
+
 /* ========== UTILITY ========== */
 .text-gradient {
   background: linear-gradient(135deg, var(--indigo) 0%, var(--teal) 100%);

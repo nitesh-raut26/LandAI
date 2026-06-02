@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { fetchMe, getAuthToken, loginUser, logoutUser, registerUser, setAuthToken } from '../utils/api'
+import { fetchMe, getAuthToken, loginUser, logoutAllApi, logoutUser, registerUser, setAuthToken } from '../utils/api'
 
 const AuthContext = createContext(null)
 
@@ -29,15 +29,22 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => { await _afterToken(await loginUser(email, password)) }
   const register = async (email, password) => { await _afterToken(await registerUser(email, password)) }
-  const logout = async () => {
-    try { await logoutUser() } catch { /* ignore */ }
+  const _clearLocal = () => {
     setAuthToken(null)
     try { localStorage.removeItem('landai_refresh') } catch { /* ignore */ }
     setUser(null)
   }
+  const logout = async () => {
+    try { await logoutUser() } catch { /* ignore */ }
+    _clearLocal()
+  }
+  const logoutAll = async () => {
+    try { await logoutAllApi() } catch { /* ignore */ }
+    _clearLocal()
+  }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, reload: loadMe }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, logoutAll, reload: loadMe }}>
       {children}
     </AuthContext.Provider>
   )

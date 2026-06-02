@@ -21,6 +21,19 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Shared distributed state for auth sessions/denylist + per-key rate limiting.
+  # Without it the app still runs (in-process fallback) but is single-replica only.
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -31,8 +44,16 @@ services:
       - ENV=production
       # Activate PostGIS spatial backend (comment out to use in-memory shapely)
       - DATABASE_URL=postgresql+psycopg://landai:landai@db:5432/landai
+      # REQUIRED in production: a strong, persistent JWT secret. Without it the
+      # secret is ephemeral per-process → every restart/replica invalidates all
+      # tokens. `:?` makes compose refuse to start until it's set (e.g. via .env).
+      - JWT_SECRET=${JWT_SECRET:?set a strong JWT_SECRET (e.g. in a .env file) before deploying}
+      # Distributed auth/rate-limit state across replicas.
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 

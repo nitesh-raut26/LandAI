@@ -56,6 +56,9 @@ class ApiKeyOut(BaseModel):
     created_at: datetime
     last_used: datetime | None = None
     revoked: bool
+    quota_used: int = 0
+    daily_quota: int | None = None
+    scopes: str = ""
 
 
 class SavedCityIn(BaseModel):
@@ -105,3 +108,12 @@ class SavedSearchOut(BaseModel):
     label: str
     query: dict
     created_at: datetime
+
+
+class SessionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    device_label: str
+    ip: str
+    created_at: datetime
+    last_used: datetime | None = None

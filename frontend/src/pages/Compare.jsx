@@ -150,20 +150,18 @@ export default function Compare() {
 
         {/* City selector panels */}
         <motion.div
+          className="compare-selectors"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.4 }}
-          style={{
-            display: 'grid', gridTemplateColumns: '1fr auto 1fr',
-            gap: 0, alignItems: 'flex-start', marginBottom: 28,
-          }}
+          style={{ marginBottom: 28 }}
         >
           <div className="card">
             <CityPanel data={dataA} loading={loadingA} label="City A" accentColor={ACCENT_A}
               onSelect={c => loadCity(c.id, setDataA, setLoadingA)} />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 18px 0' }}>
+          <div className="compare-swap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 18px 0' }}>
             <motion.div
               animate={{ rotate: [0, 10, -10, 0] }}
               transition={{ repeat: Infinity, repeatDelay: 3, duration: 0.6 }}
@@ -195,7 +193,7 @@ export default function Compare() {
               transition={{ duration: 0.4 }}
               style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
             >
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div className="grid-2" style={{ gap: 20 }}>
                 <div className="card">
                   <div className="section-title" style={{ color: ACCENT_A }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: ACCENT_A, flexShrink: 0 }} />

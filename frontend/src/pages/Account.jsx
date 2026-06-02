@@ -1,22 +1,25 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { KeyRound, LayoutDashboard, LogOut, ShieldCheck, Star, Trash2 } from 'lucide-react'
+import { Cpu, KeyRound, LayoutDashboard, LogOut, Monitor, ShieldCheck, Star, Trash2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { fetchUsage, listSavedCities, unsaveCityApi } from '../utils/api'
+import { fetchUsage, listSavedCities, listSessions, revokeSession, unsaveCityApi } from '../utils/api'
 
 const card = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 22px', boxShadow: 'var(--shadow-sm)' }
 
 export default function Account() {
-  const { user, loading, logout } = useAuth()
+  const { user, loading, logout, logoutAll } = useAuth()
   const nav = useNavigate()
   const [usage, setUsage] = useState(null)
   const [saved, setSaved] = useState([])
+  const [sessions, setSessions] = useState([])
 
+  const loadSessions = () => listSessions().then(setSessions).catch(() => {})
   useEffect(() => {
     if (loading) return
     if (!user) { nav('/login', { state: { from: '/account' } }); return }
     fetchUsage().then(setUsage).catch(() => {})
     listSavedCities().then(setSaved).catch(() => {})
+    loadSessions()
   }, [user, loading]) // eslint-disable-line
 
   if (loading || !user) return <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-muted)' }}>Loading…</div>
@@ -25,6 +28,8 @@ export default function Account() {
   const limit = usage?.daily_quota ?? 1000
   const pct = Math.min(100, Math.round((used / Math.max(limit, 1)) * 100))
   const remove = async (cid) => { await unsaveCityApi(cid).catch(() => {}); setSaved((s) => s.filter((x) => x.city_id !== cid)) }
+  const revokeOne = async (id) => { await revokeSession(id).catch(() => {}); loadSessions() }
+  const signOutEverywhere = async () => { await logoutAll(); nav('/') }
 
   return (
     <div style={{ maxWidth: 880, margin: '0 auto', padding: '28px 18px 64px', display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -97,6 +102,15 @@ export default function Account() {
         <span style={{ color: 'var(--indigo)', fontWeight: 700 }}>Manage →</span>
       </Link>
 
+      <Link to="/model" style={{ ...card, display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
+        <Cpu size={18} color="var(--teal)" />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text-primary)' }}>Model card &amp; leakage audit</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Forecast metrics, feature lineage, drift &amp; honest validation.</div>
+        </div>
+        <span style={{ color: 'var(--teal)', fontWeight: 700 }}>View →</span>
+      </Link>
+
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <Star size={16} color="#D97706" />
@@ -116,6 +130,35 @@ export default function Account() {
             ))}
           </div>
         )}
+      </div>
+
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <Monitor size={16} color="var(--indigo)" />
+          <span style={{ fontWeight: 700, fontSize: 15, fontFamily: 'DM Sans' }}>Active sessions</span>
+          <button onClick={signOutEverywhere} style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--bg-card)', color: '#B91C1C', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}>
+            <LogOut size={13} /> Sign out everywhere
+          </button>
+        </div>
+        {sessions.length === 0 ? (
+          <div style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>No active sessions.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {sessions.map((s) => (
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-base)', border: '1px solid var(--border-faint)', borderRadius: 10, padding: '9px 13px' }}>
+                <Monitor size={15} color="var(--text-muted)" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--text-primary)' }}>{s.device_label || 'Unknown device'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{s.ip || 'ip n/a'} · since {new Date(s.created_at).toLocaleDateString()}</div>
+                </div>
+                <button onClick={() => revokeOne(s.id)} title="Revoke this session" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-disabled)' }}><Trash2 size={15} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ marginTop: 10, fontSize: 11.5, color: 'var(--text-disabled)' }}>
+          Refresh tokens rotate on use; reuse of a rotated token revokes the whole session family.
+        </div>
       </div>
     </div>
   )

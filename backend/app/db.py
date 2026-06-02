@@ -5,9 +5,10 @@ SQLAlchemy database layer for the auth / platform tables.
 ``AUTH_DATABASE_URL`` (or ``DATABASE_URL``) at PostgreSQL for production; the ORM
 is identical. This is distinct from the optional PostGIS spatial DB in app.geo.
 
-For production, replace ``init_db()``'s create_all with Alembic migrations
-(scaffold documented in the README) — create_all is used here so the platform
-runs with no migration step in dev.
+For production, drive schema with Alembic instead of ``init_db()``'s create_all
+(see ``backend/migrations/`` — ``alembic upgrade head`` for a fresh DB, or
+``alembic stamp head`` to adopt an existing create_all database). create_all is
+kept for zero-setup dev and tests.
 """
 from __future__ import annotations
 
@@ -41,6 +42,7 @@ def get_db() -> Iterator[Session]:
 
 
 def init_db() -> None:
-    from .auth import models as _models  # noqa: F401  (register tables on Base)
+    from .auth import models as _models  # noqa: F401  (register auth/platform tables)
+    from .ml import registry as _registry  # noqa: F401  (register model_registry table)
 
     Base.metadata.create_all(bind=engine)

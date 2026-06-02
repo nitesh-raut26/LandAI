@@ -64,7 +64,7 @@ export default function Home() {
     )
   }, [])
 
-  const nearby = useMemo(() => {
+  const withDistance = useMemo(() => {
     if (!coords || !cities.length) return []
     const R = 6371, rad = Math.PI / 180
     const dist = (la, ln) => {
@@ -75,10 +75,16 @@ export default function Home() {
     return cities
       .map(c => ({ ...c, distance_km: Math.round(dist(c.lat, c.lng) * 10) / 10 }))
       .sort((a, b) => a.distance_km - b.distance_km)
-      .slice(0, 6)
   }, [coords, cities])
 
+  const nearby = withDistance.slice(0, 6)               // closest by distance
+  // Best-scoring cities among the ~16 nearest → "top opportunities near you".
+  const nearbyByScore = useMemo(
+    () => [...withDistance.slice(0, 16)].sort((a, b) => b.investment_score - a.investment_score).slice(0, 8),
+    [withDistance],
+  )
   const detectedRegion = nearby[0]?.state || null
+  const nearestCity = nearby[0] || null
   const watched = cities.filter(c => watchIds.includes(c.id))
 
   const filtered = cities
@@ -98,6 +104,10 @@ export default function Home() {
   const anyFilter = filterState || filterTier || filterPhase || maxPrice
 
   const highlights = cities.filter(c => HIGHLIGHT_CITIES.includes(c.id))
+  // When the visitor shares location, surface the best-scoring nearby cities as
+  // the headline opportunities; otherwise fall back to the curated highlight set.
+  const gpsOn = geoStatus === 'ok' && nearbyByScore.length > 0
+  const topOpportunities = gpsOn ? nearbyByScore : highlights
   const tierCounts = [1, 2, 3].map(t => ({ tier: t, count: cities.filter(c => c.tier === t).length }))
   const phaseCounts = ['emerging', 'accelerating', 'maturing', 'mature'].map(ph => ({
     phase: ph, count: cities.filter(c => c.growth_phase === ph).length,
@@ -233,7 +243,7 @@ export default function Home() {
             transition={{ delay: 0.22, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             style={{ maxWidth: 520, margin: '0 auto' }}
           >
-            <CitySearch placeholder="Search Jhanjharpur, Tirupati, Raipur..." />
+            <CitySearch placeholder={nearestCity ? `Search near ${nearestCity.name} — or any Indian city…` : 'Search Jhanjharpur, Tirupati, Raipur...'} />
           </motion.div>
         </div>
       </div>
@@ -563,16 +573,21 @@ export default function Home() {
                 <Zap size={15} color="#0D9488" strokeWidth={2.5} />
               </div>
               <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', letterSpacing: '-0.2px', fontFamily: 'DM Sans, sans-serif' }}>
-                Top Investment Opportunities
+                {gpsOn ? 'Top Opportunities Near You' : 'Top Investment Opportunities'}
               </span>
+              {gpsOn && (
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#059669', background: 'rgba(5,150,105,0.08)', border: '1px solid rgba(5,150,105,0.2)', borderRadius: 100, padding: '3px 11px' }}>
+                  📍 ranked by score near {detectedRegion || 'you'}
+                </span>
+              )}
             </div>
             <span style={{ fontSize: 12.5, color: '#9CA3AF', fontWeight: 500 }}>
-              {highlights.length} cities
+              {topOpportunities.length} cities
             </span>
           </motion.div>
 
           <div className="grid-4" style={{ gap: 14 }}>
-            {highlights.map((city, i) => {
+            {topOpportunities.map((city, i) => {
               const tc = tierColor(city.tier)
               const pc = phaseColor(city.growth_phase)
               const score = city.investment_score

@@ -12,9 +12,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .. import ratelimit
+from .. import ratelimit, store
+from ..auth import analytics
+from ..auth import audit as audit_log
 from ..auth.dependencies import require_role
-from ..auth.models import ApiKey, User
+from ..auth.models import ApiKey, RefreshSession, UsageLog, User
 from ..db import get_db
 from ..geo.db import spatial_backend_status
 from ..ingestion import config as ing_config
@@ -136,6 +138,9 @@ def metrics():
     """In-process observability snapshot (single instance; resets on restart)."""
     snap = METRICS.snapshot()
     snap["rate_limit"] = {"enabled": ratelimit.ENABLED, "rpm": ratelimit.RPM, "burst": ratelimit.BURST}
+    # Honest disclosure of whether shared state is actually distributed.
+    snap["shared_state_backend"] = store.backend_name()
+    snap["distributed"] = store.is_distributed()
     return snap
 
 
@@ -175,10 +180,58 @@ def auth_metrics(_admin: User = Depends(require_role("admin")), db: Session = De
     return {
         "users_total": db.scalar(select(func.count(User.id))) or 0,
         "active_api_keys": db.scalar(select(func.count(ApiKey.id)).where(ApiKey.revoked.is_(False))) or 0,
+        "active_sessions": db.scalar(select(func.count(RefreshSession.id)).where(RefreshSession.revoked_at.is_(None))) or 0,
         "signups": c.get("auth_signups", 0),
         "logins": c.get("auth_logins", 0),
         "login_failures": c.get("auth_login_failures", 0),
         "lockouts": c.get("auth_lockouts", 0),
         "metered_api_requests": c.get("auth_api_requests", 0),
         "quota_exceeded": c.get("auth_quota_exceeded", 0),
+        "throttled": c.get("auth_rate_throttled", 0),
+        "reuse_detected": c.get("audit_reuse_detected", 0),
+        "logout_all_events": c.get("audit_logout_all", 0),
+        "audit_events": c.get("audit_events", 0),
     }
+
+
+@router.get("/audit")
+def audit_trail(limit: int = 100, _admin: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
+    """Append-only audit trail — **admin only**. Compliance/security evidence."""
+    return {"events": [audit_log.to_dict(r) for r in audit_log.recent(db, limit=limit)]}
+
+
+@router.get("/quota-metrics")
+def quota_metrics(_admin: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
+    """System-wide quota / rate-limit health — **admin only**. Top consumers from
+    durable usage_logs; rates from in-process counters (reset on restart)."""
+    c = METRICS.snapshot()["counters"]
+    metered = c.get("auth_api_requests", 0)
+    exceeded = c.get("auth_quota_exceeded", 0)
+    throttled = c.get("auth_rate_throttled", 0)
+    denom = metered + exceeded + throttled
+    rows = db.execute(
+        select(ApiKey.prefix, ApiKey.name, User.email, func.count(UsageLog.id))
+        .join(ApiKey, ApiKey.id == UsageLog.api_key_id)
+        .join(User, User.id == UsageLog.user_id)
+        .group_by(ApiKey.id).order_by(func.count(UsageLog.id).desc()).limit(10)
+    ).all()
+    return {
+        "metered_requests": metered,
+        "quota_exceeded": exceeded,
+        "rate_throttled": throttled,
+        "exhaustion_rate": round(exceeded / denom, 4) if denom else 0.0,
+        "throttle_rate": round(throttled / denom, 4) if denom else 0.0,
+        "active_api_keys": db.scalar(select(func.count(ApiKey.id)).where(ApiKey.revoked.is_(False))) or 0,
+        "top_consumers": [
+            {"prefix": p, "name": n, "email": e, "requests": int(ct)} for p, n, e, ct in rows
+        ],
+        "shared_state_backend": store.backend_name(),
+        "note": "Rate counters are in-process and reset on restart; usage_daily holds durable rollups.",
+    }
+
+
+@router.post("/usage-rollup")
+def usage_rollup(_admin: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
+    """Trigger today's usage_daily rollup — **admin only**. Normally cron/worker-driven."""
+    n = analytics.rollup_usage(db)
+    return {"ok": True, "rolled_up_rows": n}

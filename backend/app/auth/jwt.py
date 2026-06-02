@@ -33,13 +33,22 @@ def create_access_token(sub: str, claims: dict | None = None) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
 
 
-def create_refresh_token(sub: str, jti: str | None = None) -> str:
+def create_refresh_token(sub: str, jti: str | None = None, family: str | None = None) -> str:
     payload = {
         "sub": str(sub), "type": "refresh",
         "jti": jti or secrets.token_urlsafe(12),
+        "fam": family or secrets.token_urlsafe(12),
         "iat": _now(), "exp": _now() + timedelta(days=REFRESH_TTL_DAYS),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
+
+
+def new_jti() -> str:
+    return secrets.token_urlsafe(12)
+
+
+def new_family() -> str:
+    return secrets.token_urlsafe(12)
 
 
 def decode_token(token: str) -> dict[str, Any] | None:

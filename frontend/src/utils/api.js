@@ -66,7 +66,14 @@ api.interceptors.request.use((cfg) => {
 export const registerUser = (email, password) => api.post('/auth/register', { email, password }).then(r => r.data)
 export const loginUser = (email, password) => api.post('/auth/login', { email, password }).then(r => r.data)
 export const fetchMe = () => api.get('/auth/me').then(r => r.data)
-export const logoutUser = () => api.post('/auth/logout').then(r => r.data).catch(() => ({}))
+export const logoutUser = () => {
+  // Real server-side logout: revoke the presented refresh session.
+  const refresh = (typeof localStorage !== 'undefined' && localStorage.getItem('landai_refresh')) || null
+  return api.post('/auth/logout', refresh ? { refresh_token: refresh } : {}).then(r => r.data).catch(() => ({}))
+}
+export const logoutAllApi = () => api.post('/auth/logout-all').then(r => r.data).catch(() => ({}))
+export const listSessions = () => api.get('/account/sessions').then(r => r.data)
+export const revokeSession = (id) => api.delete(`/account/sessions/${id}`).then(r => r.data)
 export const fetchUsage = () => api.get('/account/usage').then(r => r.data)
 export const fetchTiers = () => api.get('/auth/tiers').then(r => r.data)
 export const listApiKeys = () => api.get('/keys').then(r => r.data)
@@ -89,6 +96,18 @@ export const saveSearchApi = (label, query) => api.post('/account/saved-searches
 export const deleteSavedSearchApi = (id) => api.delete(`/account/saved-searches/${id}`).then(r => r.data)
 export const fetchDashboard = () => api.get('/account/dashboard').then(r => r.data)
 export const fetchUsageHistory = (days = 30) => api.get('/account/usage-history', { params: { days } }).then(r => r.data)
+
+// Admin (role=admin) platform analytics + security
+export const fetchQuotaMetrics = () => api.get('/system/quota-metrics').then(r => r.data)
+export const fetchAuthMetrics = () => api.get('/system/auth-metrics').then(r => r.data)
+export const fetchAuditTrail = (limit = 100) => api.get('/system/audit', { params: { limit } }).then(r => r.data)
+export const triggerUsageRollup = () => api.post('/system/usage-rollup').then(r => r.data)
+
+// ML governance / model card
+export const fetchModelCard = () => api.get('/ml/model-info').then(r => r.data)
+export const fetchLeakageAudit = () => api.get('/ml/leakage-audit').then(r => r.data)
+export const fetchModelRegistry = () => api.get('/ml/registry').then(r => r.data)
+export const fetchDriftBaseline = () => api.get('/ml/drift').then(r => r.data)
 
 // ── Fallback-aware wrappers ────────────────────────────────────────────────
 export const fetchAllCities = () =>

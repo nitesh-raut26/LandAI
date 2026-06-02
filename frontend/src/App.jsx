@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import Navbar from './components/Navbar'
 import BackendHealthBanner from './components/BackendHealthBanner'
 import Footer from './components/Footer'
@@ -12,11 +13,22 @@ import Account from './pages/Account'
 import ApiKeys from './pages/ApiKeys'
 import Dashboard from './pages/Dashboard'
 import Usage from './pages/Usage'
+import Admin from './pages/Admin'
+import ModelCard from './pages/ModelCard'
 import Docs from './pages/Docs'
+
+// Reset scroll to the top on every route change so links (e.g. from the Footer)
+// always open a page from the top instead of inheriting the previous scroll.
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  return null
+}
 
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Navbar />
       <BackendHealthBanner />
       <Routes>
@@ -30,6 +42,8 @@ export default function App() {
         <Route path="/account" element={<Account />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/usage" element={<Usage />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/model" element={<ModelCard />} />
         <Route path="/keys" element={<ApiKeys />} />
         <Route path="/docs" element={<Docs />} />
         <Route path="*" element={<Navigate to="/" replace />} />

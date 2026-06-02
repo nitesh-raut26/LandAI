@@ -33,6 +33,7 @@ class User(Base):
     watchlist: Mapped[list["WatchlistItem"]] = relationship(cascade="all, delete-orphan")
     compare_history: Mapped[list["CompareHistory"]] = relationship(cascade="all, delete-orphan")
     saved_searches: Mapped[list["SavedSearch"]] = relationship(cascade="all, delete-orphan")
+    sessions: Mapped[list["RefreshSession"]] = relationship(cascade="all, delete-orphan")
 
 
 class ApiKey(Base):
@@ -46,6 +47,11 @@ class ApiKey(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     last_used: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Per-key metering (independent of the per-user account ceiling).
+    quota_used: Mapped[int] = mapped_column(Integer, default=0)
+    quota_period: Mapped[str] = mapped_column(String(16), default="")   # YYYY-MM-DD day bucket
+    daily_quota: Mapped[int | None] = mapped_column(Integer, nullable=True)  # override; None = tier default
+    scopes: Mapped[str] = mapped_column(String(255), default="")        # csv of allowed scopes; "" = all
 
     user: Mapped[User] = relationship(back_populates="api_keys")
 
@@ -59,6 +65,22 @@ class UsageLog(Base):
     path: Mapped[str] = mapped_column(String(255))
     status: Mapped[int] = mapped_column(Integer)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
+
+
+class UsageDaily(Base):
+    """Pre-aggregated daily usage rollup (scalable analytics read path). Built
+    from usage_logs by analytics.rollup_usage(); raw logs stay the source of truth."""
+
+    __tablename__ = "usage_daily"
+    __table_args__ = (UniqueConstraint("day", "user_id", "api_key_id", "path", name="uq_usage_daily"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    api_key_id: Mapped[int | None] = mapped_column(ForeignKey("api_keys.id"), nullable=True)
+    day: Mapped[str] = mapped_column(String(10), index=True)   # YYYY-MM-DD
+    path: Mapped[str] = mapped_column(String(255))
+    count: Mapped[int] = mapped_column(Integer, default=0)
+    error_count: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class SavedCity(Base):
@@ -109,6 +131,42 @@ class SavedSearch(Base):
     label: Mapped[str] = mapped_column(String(120), default="")
     query: Mapped[str] = mapped_column(Text, default="{}")   # JSON: {q, state, tier}
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class RefreshSession(Base):
+    """One row per issued refresh token (jti). Server-side source of truth for
+    rotation + revocation. Tokens in the same login share a ``family_id``; reuse
+    of an already-rotated jti revokes the whole family (breach signal)."""
+
+    __tablename__ = "refresh_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    jti: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    family_id: Mapped[str] = mapped_column(String(64), index=True)
+    device_label: Mapped[str] = mapped_column(String(160), default="")
+    ip: Mapped[str] = mapped_column(String(64), default="")
+    user_agent: Mapped[str] = mapped_column(String(256), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    last_used: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AuditLog(Base):
+    """Append-only security/audit trail (compliance evidence). No relationship
+    cascade — audit rows outlive the resources they describe."""
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    actor_ip: Mapped[str] = mapped_column(String(64), default="")
+    event: Mapped[str] = mapped_column(String(64), index=True)
+    target_type: Mapped[str] = mapped_column(String(48), default="")
+    target_id: Mapped[str] = mapped_column(String(64), default="")
+    meta: Mapped[str] = mapped_column(Text, default="{}")
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
 
 
 class BillingEvent(Base):

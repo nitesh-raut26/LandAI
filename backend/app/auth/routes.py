@@ -9,13 +9,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from . import service
+from . import audit, service
 from .dependencies import get_current_user
 from .jwt import ACCESS_TTL_MIN, create_access_token, create_refresh_token, decode_token
-from .models import ApiKey, CompareHistory, SavedCity, SavedSearch, UsageLog, User, WatchlistItem
+from .models import ApiKey, CompareHistory, RefreshSession, SavedCity, SavedSearch, UsageLog, User, WatchlistItem
 from .schemas import (
     ApiKeyCreated, ApiKeyOut, CompareIn, CompareOut, LoginIn, RefreshIn, RegisterIn,
-    SavedCityIn, SavedCityOut, SavedSearchIn, SavedSearchOut, TokenOut, UserOut,
+    SavedCityIn, SavedCityOut, SavedSearchIn, SavedSearchOut, SessionOut, TokenOut, UserOut,
     WatchItemIn, WatchItemOut,
 )
 from .tiers import get_tier, tiers_public
@@ -30,46 +30,90 @@ def _client_ip(request: Request) -> str:
     return xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")
 
 
-def _tokens(user: User) -> TokenOut:
-    access = create_access_token(user.id, {"role": user.role, "tier": user.subscription_tier})
-    return TokenOut(access_token=access, refresh_token=create_refresh_token(user.id), expires_in=ACCESS_TTL_MIN * 60)
+def _tokens_for(user: User, jti: str, fam: str) -> TokenOut:
+    access = create_access_token(user.id, {"role": user.role, "tier": user.subscription_tier, "fam": fam})
+    refresh = create_refresh_token(user.id, jti=jti, family=fam)
+    return TokenOut(access_token=access, refresh_token=refresh, expires_in=ACCESS_TTL_MIN * 60)
+
+
+def _issue_tokens(db: Session, user: User, request: Request, family: str | None = None) -> TokenOut:
+    jti, fam = service.create_session(
+        db, user, ip=_client_ip(request), user_agent=request.headers.get("user-agent", ""), family=family,
+    )
+    return _tokens_for(user, jti, fam)
 
 
 # ── auth ────────────────────────────────────────────────────────────────────
 @auth_router.post("/register", response_model=TokenOut, status_code=201)
-def register(body: RegisterIn, db: Session = Depends(get_db)):
+def register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
     try:
         user = service.register(db, body.email, body.password)
     except service.AuthError as e:
         raise HTTPException(e.status, e.detail)
-    return _tokens(user)
+    audit.log_event(db, "signup", user_id=user.id, ip=_client_ip(request))
+    return _issue_tokens(db, user, request)
 
 
 @auth_router.post("/login", response_model=TokenOut)
 def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
+    ip = _client_ip(request)
     try:
-        user = service.authenticate(db, body.email, body.password, ip=_client_ip(request))
+        user = service.authenticate(db, body.email, body.password, ip=ip)
     except service.AuthError as e:
+        audit.log_event(db, "lockout" if e.status == 429 else "login_failed",
+                        ip=ip, meta={"email": (body.email or "")[:120]})
         raise HTTPException(e.status, e.detail)
-    return _tokens(user)
+    audit.log_event(db, "login", user_id=user.id, ip=ip)
+    return _issue_tokens(db, user, request)
 
 
 @auth_router.post("/refresh", response_model=TokenOut)
-def refresh(body: RefreshIn, db: Session = Depends(get_db)):
+def refresh(body: RefreshIn, request: Request, db: Session = Depends(get_db)):
     payload = decode_token(body.refresh_token)
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(401, "Invalid or expired refresh token.")
-    user = db.get(User, int(payload.get("sub") or 0))
+    sess = service.get_session(db, payload.get("jti") or "")
+    if sess is None:
+        raise HTTPException(401, "Refresh token not recognized — please sign in again.")
+    if sess.revoked_at is not None:
+        # Replay of an already-rotated token → assume compromise; burn the family.
+        service.revoke_family(db, sess.family_id)
+        audit.log_event(db, "reuse_detected", user_id=sess.user_id, ip=_client_ip(request),
+                        target_type="session", target_id=sess.id, meta={"family": sess.family_id})
+        raise HTTPException(401, "Refresh token reuse detected — all sessions in this family were revoked.")
+    if not service.session_active(sess):
+        raise HTTPException(401, "Refresh token expired — please sign in again.")
+    user = db.get(User, sess.user_id)
     if not user or not user.is_active:
         raise HTTPException(401, "User not found or inactive.")
-    return _tokens(user)
+    jti, fam = service.rotate_session(
+        db, sess, user, ip=_client_ip(request), user_agent=request.headers.get("user-agent", ""))
+    audit.log_event(db, "refresh_rotated", user_id=user.id, ip=_client_ip(request),
+                    target_type="session", target_id=sess.id)
+    return _tokens_for(user, jti, fam)
 
 
 @auth_router.post("/logout")
-def logout():
-    # Stateless JWT: the client discards tokens. A server-side jti denylist for
-    # true revocation is the documented next step.
-    return {"ok": True, "note": "Discard tokens client-side; server-side revocation is on the roadmap."}
+def logout(request: Request, body: RefreshIn | None = None, db: Session = Depends(get_db)):
+    """Real server-side logout: revoke the presented refresh session and denylist
+    its token family so the matching access token dies immediately. Idempotent."""
+    if body and body.refresh_token:
+        payload = decode_token(body.refresh_token)
+        if payload and payload.get("type") == "refresh":
+            sess = service.get_session(db, payload.get("jti") or "")
+            if sess:
+                service.revoke_session(db, sess)
+                audit.log_event(db, "logout", user_id=sess.user_id, ip=_client_ip(request),
+                                target_type="session", target_id=sess.id)
+    return {"ok": True}
+
+
+@auth_router.post("/logout-all")
+def logout_all(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Revoke every active session for the user (sign out on all devices)."""
+    n = service.revoke_user_sessions(db, user.id)
+    audit.log_event(db, "logout_all", user_id=user.id, ip=_client_ip(request), meta={"revoked": n})
+    return {"ok": True, "revoked_sessions": n}
 
 
 @auth_router.get("/me", response_model=UserOut)
@@ -98,8 +142,14 @@ def list_keys(user: User = Depends(get_current_user), db: Session = Depends(get_
 
 
 @keys_router.post("", response_model=ApiKeyCreated, status_code=201)
-def create_key(name: str = Body("default", embed=True), user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    key, full = service.create_api_key(db, user, name)
+def create_key(
+    name: str = Body("default", embed=True),
+    scopes: str = Body("", embed=True),
+    daily_quota: int | None = Body(None, embed=True),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    key, full = service.create_api_key(db, user, name, scopes=scopes, daily_quota=daily_quota)
     return ApiKeyCreated(id=key.id, name=key.name, prefix=key.prefix, api_key=full, created_at=key.created_at)
 
 
@@ -265,6 +315,23 @@ def del_search(item_id: int, user: User = Depends(get_current_user), db: Session
     db.delete(s)
     db.commit()
     return {"ok": True}
+
+
+# ── device / session management ─────────────────────────────────────────────
+@account_router.get("/sessions", response_model=list[SessionOut])
+def list_sessions(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return service.active_sessions(db, user.id)
+
+
+@account_router.delete("/sessions/{session_id}")
+def revoke_one_session(session_id: int, request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    sess = db.scalar(select(RefreshSession).where(RefreshSession.id == session_id, RefreshSession.user_id == user.id))
+    if not sess:
+        raise HTTPException(404, "Session not found.")
+    service.revoke_session(db, sess)
+    audit.log_event(db, "session_revoked", user_id=user.id, ip=_client_ip(request),
+                    target_type="session", target_id=sess.id)
+    return {"ok": True, "revoked": session_id}
 
 
 # ── dashboards ──────────────────────────────────────────────────────────────

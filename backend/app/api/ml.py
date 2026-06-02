@@ -1,18 +1,55 @@
 import time
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
 
 from ..data.cities_data import get_city
+from ..db import get_db
 from ..metrics import METRICS
-from ..ml.price_model import model_info, predict_price_growth
+from ..ml import drift as drift_mod
+from ..ml import registry as model_registry
+from ..ml.price_model import leakage_report, model_info, predict_price_growth
 
 router = APIRouter(prefix="/ml", tags=["ml"])
 
 
 @router.get("/model-info")
 def ml_model_info():
-    """Model card: backend, metrics (train + 5-fold CV R2, RMSE, MAE) and feature importances."""
+    """Model card: version, metrics (train + CV R2, RMSE, MAE), importances, leakage audit."""
     return model_info()
+
+
+@router.get("/leakage-audit")
+def ml_leakage_audit():
+    """Honest temporal-leakage audit: active vs excluded features and why."""
+    return leakage_report()
+
+
+@router.get("/registry")
+def ml_registry(db: Session = Depends(get_db)):
+    """Model registry — version, lineage, metrics, leakage audit per model."""
+    model_registry.register_if_absent(db)
+    return {"models": model_registry.list_models(db)}
+
+
+@router.get("/registry/{version}")
+def ml_registry_version(version: str, db: Session = Depends(get_db)):
+    row = model_registry.get_version(db, version)
+    if not row:
+        raise HTTPException(404, f"Model version '{version}' not found")
+    return model_registry.to_dict(row)
+
+
+@router.get("/drift")
+def ml_drift():
+    """Feature-drift baseline (PSI). Live PSI needs a production inference stream."""
+    return drift_mod.drift_report()
+
+
+@router.post("/drift")
+def ml_drift_sample(sample: list[list[float]] = Body(..., embed=True)):
+    """Compute PSI for a supplied batch of feature vectors against the baseline."""
+    return drift_mod.drift_report(sample=sample)
 
 
 @router.get("/price/{city_id}")

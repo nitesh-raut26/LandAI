@@ -7,18 +7,21 @@ import PredictionChart from '../components/PredictionChart'
 import GrowthZoneMap from '../components/GrowthZoneMap'
 import CityComparison from '../components/CityComparison'
 import InvestmentScore from '../components/InvestmentScore'
+import PersonaScore from '../components/PersonaScore'
 import AiIntelligence from '../components/AiIntelligence'
 import LiveAmenities from '../components/LiveAmenities'
+import TimeMachine from '../components/TimeMachine'
 import ProvenanceStrip from '../components/ProvenanceStrip'
-import { fetchFullAnalysis, fetchSimilarCities, tierColor, phaseColor } from '../utils/api'
+import { fetchFullAnalysis, fetchSimilarCities, fetchZonePriceIndex, tierColor, phaseColor, formatPrice } from '../utils/api'
 
 const TABS = [
-  { id: 'prediction', label: 'Growth Forecast' },
-  { id: 'zones',      label: 'Investment Zones' },
-  { id: 'ai',         label: 'AI Models' },
-  { id: 'live',       label: 'Live (OSM)' },
-  { id: 'twin',       label: 'Twin City' },
-  { id: 'similar',    label: 'Similar Cities' },
+  { id: 'prediction',  label: 'Growth Forecast' },
+  { id: 'zones',       label: 'Investment Zones' },
+  { id: 'ai',          label: 'AI Models' },
+  { id: 'live',        label: 'Live (OSM)' },
+  { id: 'twin',        label: 'Twin City' },
+  { id: 'timemachine', label: 'Time Machine' },
+  { id: 'similar',     label: 'Similar Cities' },
 ]
 
 const INFRA_ICONS = {
@@ -32,18 +35,23 @@ export default function CityAnalysis() {
   const { cityId }  = useParams()
   const navigate    = useNavigate()
   const { isWatched, toggle } = useWatchlist()
-  const [data, setData]             = useState(null)
-  const [similar, setSimilar]       = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [error, setError]           = useState(null)
-  const [activeTab, setActiveTab]   = useState('prediction')
+  const [data, setData]                 = useState(null)
+  const [similar, setSimilar]           = useState([])
+  const [zonePrice, setZonePrice]       = useState(null)
+  const [zonePriceLoading, setZonePriceLoading] = useState(true)
+  const [loading, setLoading]           = useState(true)
+  const [error, setError]               = useState(null)
+  const [activeTab, setActiveTab]       = useState('prediction')
 
   useEffect(() => {
     if (!cityId) return
-    setLoading(true); setError(null); setData(null)
+    setLoading(true); setError(null); setData(null); setZonePrice(null); setZonePriceLoading(true)
     Promise.all([fetchFullAnalysis(cityId), fetchSimilarCities(cityId, 6)])
       .then(([analysis, sim]) => { setData(analysis); setSimilar(sim); setLoading(false) })
       .catch(err => { setError(err.message); setLoading(false) })
+    fetchZonePriceIndex(cityId)
+      .then(z => { setZonePrice(z); setZonePriceLoading(false) })
+      .catch(() => { setZonePrice(null); setZonePriceLoading(false) })
   }, [cityId])
 
   if (loading) return (
@@ -341,11 +349,57 @@ export default function CityAnalysis() {
                         ))}
                       </div>
                     </div>
+
+                    {zonePrice?.zones?.length > 0 && (
+                      <div style={{ marginTop: 24 }}>
+                        <div className="section-title">Land Price Index by Zone</div>
+                        <div style={{ fontSize: 12.5, color: '#9CA3AF', marginBottom: 12 }}>
+                          Per-corridor price off the city core (₹{zonePrice.core_price_inr_per_sqft.toLocaleString()}/sqft) — entry price today, projected price, and implied appreciation.
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                            <thead>
+                              <tr style={{ textAlign: 'left', color: '#9CA3AF', fontWeight: 600 }}>
+                                {['Zone', 'Today', 'Projected', 'Implied CAGR', 'Disc. to core'].map((h, i) => (
+                                  <th key={h} style={{ padding: '7px 10px', borderBottom: '1px solid var(--border-faint)', textAlign: i === 0 ? 'left' : 'right' }}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {zonePrice.zones.map(z => {
+                                const cheapest = z.zone_id === zonePrice.cheapest_zone_id
+                                const hottest = z.zone_id === zonePrice.highest_appreciation_zone_id
+                                return (
+                                  <tr key={z.zone_id}>
+                                    <td style={{ padding: '9px 10px', borderBottom: '1px solid var(--border-faint)', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                      {z.label}
+                                      {cheapest && <span style={{ marginLeft: 6, fontSize: 10, color: '#059669', background: 'rgba(5,150,105,0.1)', padding: '1px 7px', borderRadius: 100 }}>cheapest</span>}
+                                      {hottest && <span style={{ marginLeft: 6, fontSize: 10, color: '#D97706', background: 'rgba(245,158,11,0.12)', padding: '1px 7px', borderRadius: 100 }}>hottest</span>}
+                                    </td>
+                                    <td style={{ padding: '9px 10px', borderBottom: '1px solid var(--border-faint)', textAlign: 'right', color: '#374151' }}>{formatPrice(z.current_price_inr_per_sqft)}</td>
+                                    <td style={{ padding: '9px 10px', borderBottom: '1px solid var(--border-faint)', textAlign: 'right', color: '#374151' }}>{formatPrice(z.projected_price_inr_per_sqft)}</td>
+                                    <td style={{ padding: '9px 10px', borderBottom: '1px solid var(--border-faint)', textAlign: 'right', fontWeight: 700, color: '#059669' }}>{z.implied_price_cagr_pct}%</td>
+                                    <td style={{ padding: '9px 10px', borderBottom: '1px solid var(--border-faint)', textAlign: 'right', color: '#9CA3AF' }}>−{z.discount_to_core_pct}%</td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div style={{ marginTop: 12 }}>
+                          <ProvenanceStrip kind="heuristic" provenance={{ source: 'Zone price index' }} note={zonePrice.method} />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {activeTab === 'ai' && (
                   <AiIntelligence cityId={cityId} city={city} />
+                )}
+
+                {activeTab === 'timemachine' && (
+                  <TimeMachine cityId={cityId} />
                 )}
 
                 {activeTab === 'live' && (
@@ -419,11 +473,19 @@ export default function CityAnalysis() {
                 <TrendingUp size={13} />
                 Investment Intelligence
               </div>
-              <InvestmentScore city={city} prediction={prediction} />
+              <InvestmentScore
+                city={city}
+                prediction={prediction}
+                zonePriceData={zonePrice}
+                zonePriceLoading={zonePriceLoading}
+                subscriptionTier="developer"
+              />
               <div style={{ marginTop: 14 }}>
                 <ProvenanceStrip kind="heuristic" provenance={{ source: 'Weighted investment scoring' }} note="Heuristic weighted sub-scores + curated inputs. Directional, not investment advice." />
               </div>
             </div>
+
+            <PersonaScore cityId={cityId} />
 
             {twin && (
               <Link to={`/compare?a=${cityId}&b=${twin.city_id}`}>

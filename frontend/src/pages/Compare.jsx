@@ -5,6 +5,7 @@ import { GitCompare, Loader2, ArrowRightLeft } from 'lucide-react'
 import CitySearch from '../components/CitySearch'
 import PredictionChart from '../components/PredictionChart'
 import InvestmentScore from '../components/InvestmentScore'
+import ProvenanceStrip from '../components/ProvenanceStrip'
 import { fetchFullAnalysis, getAuthToken, recordCompareApi, tierColor, phaseColor } from '../utils/api'
 
 export default function Compare() {
@@ -267,6 +268,10 @@ export default function Compare() {
                       })}
                     </tbody>
                   </table>
+                </div>
+                <div style={{ marginTop: 14 }}>
+                  <ProvenanceStrip kind="curated" provenance={{ source: 'Curated city data + phase-based forecast', license: 'internal' }}
+                    note="Current metrics are from the curated city database; CAGR / appreciation rows are the heuristic phase-based forecast (not statistical). Directional comparison, not investment advice." />
                 </div>
               </div>
             </motion.div>

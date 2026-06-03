@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import { BarChart2, MapPin, TrendingUp, Layers, ArrowRight, Loader2 } from 'lucide-react'
 import { fetchAllCities, tierColor, phaseColor, scoreColor } from '../utils/api'
+import ProvenanceStrip from '../components/ProvenanceStrip'
 
 const axisStyle = { fill: '#9CA3AF', fontSize: 11, fontWeight: 500 }
 const gridStyle = { stroke: '#F3F4F6', strokeDasharray: '3 3' }
@@ -74,6 +75,10 @@ export default function Analytics() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.6px', color: 'var(--text-primary)', fontFamily: 'DM Sans, sans-serif' }}>Market Analytics</h1>
           <p style={{ fontSize: 14.5, color: '#6B7280', marginTop: 6 }}>Cross-market intelligence across {cities.length} cities and {stats.states} states & UTs.</p>
+          <div style={{ marginTop: 14 }}>
+            <ProvenanceStrip kind="curated" provenance={{ source: 'Curated 116-city database', license: 'internal' }}
+              note="Distributions are computed from the curated, census-aligned city database — directional, not live market transactions. Investment scores are heuristic." />
+          </div>
         </motion.div>
 
         {/* tiles */}

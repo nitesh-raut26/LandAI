@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, ArrowRight, Loader2, CornerDownLeft } from 'lucide-react'
 import { runCopilot, scoreColor } from '../utils/api'
+import ProvenanceStrip from './ProvenanceStrip'
 
 const EXAMPLES = [
   'Best city under ₹20 lakh near a metro',
@@ -120,6 +121,10 @@ export default function CopilotBox() {
                   ))}
                 </div>
               )}
+              <div style={{ marginTop: 14 }}>
+                <ProvenanceStrip kind="heuristic" provenance={{ source: 'Rule-based NLU over the city database' }}
+                  note="Ranked by a deterministic keyword/regex parser over the curated database — NOT an LLM. Results are explainable and reproducible." />
+              </div>
             </div>
           </motion.div>
         )}

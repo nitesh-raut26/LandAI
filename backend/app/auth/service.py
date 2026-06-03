@@ -57,6 +57,33 @@ def register(db: Session, email: str, password: str) -> User:
     return user
 
 
+def get_or_create_oauth_user(db: Session, email: str, *, provider: str = "google") -> User:
+    """Find-or-create a user authenticated by an external IdP (Google).
+
+    OAuth users have no usable password — we store a random hash so password
+    login can never succeed for them, while normal account features still work.
+    """
+    email = (email or "").strip().lower()
+    if not valid_email(email):
+        raise AuthError(422, "Google did not return a valid email.")
+    user = db.scalar(select(User).where(User.email == email))
+    if user:
+        if not user.is_active:
+            raise AuthError(403, "Account is disabled.")
+        user.last_login = datetime.now(timezone.utc)
+        db.commit()
+        METRICS.incr("auth_oauth_logins")
+        return user
+    user = User(email=email, password_hash=hash_password(secrets.token_urlsafe(32)))
+    user.last_login = datetime.now(timezone.utc)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    METRICS.incr("auth_signups")
+    METRICS.incr("auth_oauth_signups")
+    return user
+
+
 def _bf_key(email: str, ip: str) -> str:
     return f"bf:{email}:{ip}"
 

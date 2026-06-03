@@ -10,6 +10,8 @@ scipy==1.17.1
 scikit-learn==1.8.0
 pandas==3.0.3
 xgboost==3.2.0          # land-price growth model (needs libomp on macOS: `brew install libomp`)
+# faiss-cpu>=1.8.0      # OPTIONAL: accelerates City DNA similarity search at scale.
+                        # The matcher auto-detects it and falls back to NumPy (identical results) otherwise.
 
 # ── Geospatial (shapely engine + optional PostGIS backend) ──
 shapely==2.1.2
@@ -28,6 +30,9 @@ python-jose[cryptography]==3.5.0   # JWT access + refresh tokens
 passlib==1.7.4                     # password hashing (pbkdf2_sha256 default; bcrypt/argon2 swappable)
 alembic==1.18.4                    # DB migrations (production path; dev/tests still use create_all)
 redis==8.0.0                       # OPTIONAL: distributed auth/rate-limit state when REDIS_URL is set
+
+# ── PDF report generation (pure Python, no system libs required) ──
+reportlab==4.2.5
 
 # ── Tests ──
 pytest==9.0.3

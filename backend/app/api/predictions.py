@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 from ..data.cities_data import get_city, CITIES
 from ..services.prediction_engine import predict_growth, full_analysis
-from ..services.city_matcher import find_similar_cities, get_historical_twin, compare_timelines
+from ..services.city_matcher import find_similar_cities, get_historical_twin, compare_timelines, time_machine
 
 router = APIRouter(prefix="/predictions", tags=["predictions"])
 
@@ -58,6 +58,19 @@ def similar_cities(city_id: str, top: int = Query(5, ge=1, le=10)):
         }
         for r in results
     ]
+
+
+@router.get("/{city_id}/time-machine")
+def city_time_machine(city_id: str, horizon: int = Query(15, ge=5, le=25)):
+    """Time Machine (Vision §3.6): replay this city's more-developed twin's real
+    price trajectory onto its projected future — 'where will it be in N years?'."""
+    city = get_city(city_id)
+    if not city:
+        raise HTTPException(404, detail=f"City '{city_id}' not found")
+    tm = time_machine(city, horizon)
+    if not tm:
+        raise HTTPException(404, detail="No historical twin available for a Time Machine view.")
+    return tm
 
 
 @router.get("/{city_id}/twin")

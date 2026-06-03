@@ -65,6 +65,9 @@ api.interceptors.request.use((cfg) => {
 
 export const registerUser = (email, password) => api.post('/auth/register', { email, password }).then(r => r.data)
 export const loginUser = (email, password) => api.post('/auth/login', { email, password }).then(r => r.data)
+// Google sign-in (Identity Services): is it configured, and exchange a credential.
+export const fetchGoogleStatus = () => api.get('/auth/google/status').then(r => r.data).catch(() => ({ enabled: false }))
+export const googleSignIn = (credential) => api.post('/auth/google', { credential }).then(r => r.data)
 export const fetchMe = () => api.get('/auth/me').then(r => r.data)
 export const logoutUser = () => {
   // Real server-side logout: revoke the presented refresh session.
@@ -177,8 +180,26 @@ export const fetchGeoZones = (id) =>
 // Direct image URL (served by the backend via the Vite proxy)
 export const cvRasterUrl = (id) => `${BASE}/cv/${id}/growth-raster.png`
 
-export const fetchScore = (id) =>
-  api.get(`/score/${id}`).then(r => r.data).catch(() => getMockScore(id))
+export const fetchScore = (id, persona = 'balanced') =>
+  api.get(`/score/${id}`, { params: { persona } }).then(r => r.data).catch(() => getMockScore(id))
+
+// Investor Persona Mode catalogue (Small / Builder / NRI / Balanced).
+export const fetchPersonas = () =>
+  api.get('/score/personas').then(r => r.data)
+    .catch(() => ({ personas: [
+      { key: 'balanced', label: 'Balanced', focus: 'An even view across appreciation, demand, development and risk.' },
+      { key: 'small', label: 'Small Investor', focus: 'Affordability, capital safety and the ability to exit.' },
+      { key: 'builder', label: 'Builder / Developer', focus: 'Development potential, infrastructure and absorption demand.' },
+      { key: 'nri', label: 'NRI Investor', focus: 'Liquidity, connectivity and lower risk for a remote hold.' },
+    ], default: 'balanced' }))
+
+// Zone-level land-price index (per-corridor price off the city core).
+export const fetchZonePriceIndex = (id) =>
+  api.get(`/geo/city/${id}/price-index`).then(r => r.data).catch(() => null)
+
+// Time Machine — replay a twin's real trajectory onto this city's future.
+export const fetchTimeMachine = (id, horizon = 15) =>
+  api.get(`/predictions/${id}/time-machine`, { params: { horizon } }).then(r => r.data).catch(() => null)
 
 export const fetchNearby = (lat, lng, top = 8, radius_km = 400) =>
   api.get('/geo/nearby', { params: { lat, lng, top, radius_km } }).then(r => r.data)

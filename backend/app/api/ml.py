@@ -10,6 +10,7 @@ from ..db import get_db
 from ..metrics import METRICS
 from ..ml import drift as drift_mod
 from ..ml import registry as model_registry
+from ..ml import scheduler as ml_scheduler
 from ..ml.price_model import leakage_report, model_info, predict_price_growth
 
 router = APIRouter(prefix="/ml", tags=["ml"])
@@ -60,6 +61,31 @@ def ml_registry_archive(version: str, _admin: User = Depends(require_role("admin
     if not row:
         raise HTTPException(404, f"Model version '{version}' not found")
     return {"ok": True, "version": version, "status": row.status}
+
+
+@router.get("/governance")
+def ml_governance(db: Session = Depends(get_db)):
+    """ML lifecycle governance health: scheduler state + registry summary + the
+    last drift self-check. Surfaces that registry/drift jobs actually run (the
+    scheduler seeds on startup and recurs when ML_GOVERNANCE_ENABLED is set)."""
+    model_registry.register_if_absent(db)
+    models = model_registry.list_models(db)
+    return {
+        "scheduler": ml_scheduler.status(),
+        "registry": {
+            "total_models": len(models),
+            "production": [m["version"] for m in models if m.get("status") == "production"],
+            "models": models,
+        },
+        "drift_baseline": drift_mod.drift_report(),
+    }
+
+
+@router.post("/governance/run")
+def ml_governance_run(_admin: User = Depends(require_role("admin")), db: Session = Depends(get_db)):
+    """Trigger a governance cycle now (register model + drift self-check). **Admin only.**
+    Normally the background scheduler drives this; this is the manual lever."""
+    return {"ok": True, "report": ml_scheduler.run_governance_cycle(db), "scheduler": ml_scheduler.status()}
 
 
 @router.get("/drift")

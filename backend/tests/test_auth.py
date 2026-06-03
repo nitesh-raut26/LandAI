@@ -110,8 +110,12 @@ def test_tiers_listed():
     assert {"developer", "pro", "enterprise"} <= {t["key"] for t in r.json()["tiers"]}
 
 
-def test_google_oauth_is_honest_501():
-    assert client.post("/api/auth/google").status_code == 501
+def test_google_oauth_disabled_until_configured(monkeypatch):
+    # Real flow now exists but stays dark until GOOGLE_CLIENT_ID is set — honest,
+    # not a permanent stub. Status reports it; a sign-in attempt returns 501.
+    monkeypatch.delenv("GOOGLE_CLIENT_ID", raising=False)
+    assert client.get("/api/auth/google/status").json()["enabled"] is False
+    assert client.post("/api/auth/google", json={"credential": "x"}).status_code == 501
 
 
 def test_logout_ok():

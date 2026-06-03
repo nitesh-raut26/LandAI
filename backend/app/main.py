@@ -13,6 +13,8 @@ from .api.predictions import router as predictions_router
 from .api.score import router as score_router
 from .api.signals import router as signals_router
 from .api.system import router as system_router
+from .api.data import router as data_router
+from .api.reports import router as reports_router
 from . import ratelimit
 from .metrics import RequestMetricsMiddleware
 from .data.cities_data import get_all_cities
@@ -54,7 +56,28 @@ async def lifespan(app: FastAPI):
         init_and_seed(get_all_cities())
     except Exception:
         pass
+    # Seed circle-rate price store (MH / KA / TS government guidance values)
+    # This runs synchronously at startup — it's fast (in-memory, no network).
+    try:
+        from .store_circle_rates import PRICE_STORE
+        PRICE_STORE.seed_all()
+    except Exception:
+        pass
+    # ML governance: seed the model registry + run a drift self-check, and start
+    # the recurring scheduler when ML_GOVERNANCE_ENABLED is set (env-gated, daemon).
+    try:
+        from .ml import scheduler as ml_scheduler
+        ml_scheduler.start()
+    except Exception:
+        pass
     yield
+    # Graceful shutdown of the governance thread (no-op if it never started).
+    try:
+        from .ml import scheduler as ml_scheduler
+
+        ml_scheduler.stop()
+    except Exception:
+        pass
 
 
 app = FastAPI(
@@ -84,7 +107,7 @@ app.add_middleware(RequestMetricsMiddleware)
 for r in (cities_router, predictions_router, ml_router, signals_router,
           geo_router, cv_router, score_router, copilot_router, live_router,
           system_router, auth_router, keys_router, account_router,
-          v1_router, billing_router):
+          v1_router, billing_router, data_router, reports_router):
     app.include_router(r, prefix="/api")
 
 
@@ -110,6 +133,8 @@ def root():
             "account": "/api/account",
             "developer_api_metered": "/api/v1",
             "billing_status": "/api/billing/status",
+            "data_coverage": "/api/data/coverage",
+            "pdf_reports": "/api/reports/{city_id}",
         },
         "docs": "/docs",
     }

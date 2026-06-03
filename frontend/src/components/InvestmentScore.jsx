@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion'
 import { TrendingUp, Shield, Zap, BarChart2 } from 'lucide-react'
 import { scoreColor, phaseColor } from '../utils/api'
+import ZonePriceTable from './ZonePriceTable'
+import ExportReportButton from './ExportReportButton'
 
 function ScoreBar({ label, score, color }) {
   return (
@@ -71,7 +73,7 @@ function getRec(score, phase) {
   return score >= 70 ? 'Buy Early' : 'Watch'
 }
 
-export default function InvestmentScore({ city, prediction }) {
+export default function InvestmentScore({ city, prediction, zonePriceData, zonePriceLoading, subscriptionTier }) {
   if (!city) return null
 
   const score  = city.investment_score
@@ -193,6 +195,22 @@ export default function InvestmentScore({ city, prediction }) {
           </div>
         </div>
       )}
+
+      {/* Zone price index — real circle-rate data vs heuristic */}
+      <ZonePriceTable
+        data={zonePriceData}
+        loading={zonePriceLoading}
+        error={null}
+      />
+
+      {/* PDF export — Pro-gated */}
+      <div style={{ marginTop: 8 }}>
+        <ExportReportButton
+          cityId={city.id}
+          cityName={city.name}
+          subscriptionTier={subscriptionTier || 'developer'}
+        />
+      </div>
     </div>
   )
 }

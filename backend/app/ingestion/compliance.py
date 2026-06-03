@@ -84,6 +84,61 @@ SOURCE_REGISTRY: dict[str, SourcePolicy] = {
         check_robots=False,
     ),
 
+    # ── GOVERNMENT OPEN DATA — CIRCLE RATES / GUIDANCE VALUES ──────────────
+    # State guidance values (Annual Statement of Rates / Ready Reckoner) are
+    # published under GODL-India by state Registration / Revenue departments.
+    # These are the legally mandated floors for stamp duty; reuse with attribution
+    # is explicitly permitted by GODL-India.
+    "maharashtra_igr": SourcePolicy(
+        key="maharashtra_igr",
+        name="Maharashtra IGR — Annual Statement of Rates (ASR)",
+        url="https://igrmaharashtra.gov.in/english/pages/RRRates.aspx",
+        license="GODL-India",
+        attribution="Inspector General of Registration, Maharashtra",
+        allowed=True,
+        legality_note=(
+            "Maharashtra ASR (Annual Statement of Rates / Ready Reckoner) is published "
+            "annually by the IGR Maharashtra under the Government Open Data Licence – India "
+            "(GODL-India). Reuse with attribution is permitted. Data reflects published "
+            "2023–24 guidance values; not a live portal scrape."
+        ),
+        min_interval_seconds=2.0,
+        default_ttl_seconds=_MONTH,
+        check_robots=False,  # sourced from published gazette, not portal scrape
+    ),
+    "karnataka_kaveri": SourcePolicy(
+        key="karnataka_kaveri",
+        name="Karnataka Kaveri Online Services — Guidance Value",
+        url="https://kaverionline.karnataka.gov.in",
+        license="GODL-India",
+        attribution="Inspector General of Registration & Stamps, Karnataka",
+        allowed=True,
+        legality_note=(
+            "Karnataka guidance values are published by Kaveri Online Services under "
+            "GODL-India. Data reflects published 2023–24 guidance value notifications. "
+            "HUMAN GATE: confirm bulk export path before live portal scraping."
+        ),
+        min_interval_seconds=2.0,
+        default_ttl_seconds=_MONTH,
+        check_robots=False,
+    ),
+    "telangana_igrs": SourcePolicy(
+        key="telangana_igrs",
+        name="Telangana IGRS — Dharani Guidance Values",
+        url="https://registration.telangana.gov.in/guidancevalue.htm",
+        license="GODL-India",
+        attribution="Inspector General of Registration & Stamps, Telangana",
+        allowed=True,
+        legality_note=(
+            "Telangana IGRS publishes mandal/village-wise guidance values via the Dharani "
+            "portal under GODL-India. Data reflects 2023–24 gazette rates. "
+            "HUMAN GATE: confirm automated access ToS before live portal scraping."
+        ),
+        min_interval_seconds=2.0,
+        default_ttl_seconds=_MONTH,
+        check_robots=False,
+    ),
+
     # ── ToS-PROTECTED LISTING PORTALS — DISABLED BY DESIGN ───────────────
     # Registered (just below) for transparency only. Their Terms of Service
     # prohibit automated extraction, so allowed=False. The gated adapter that

@@ -2,7 +2,9 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ..data.cities_data import get_all_cities, get_city
 from ..geo.db import nearby_cities, spatial_backend_status
-from ..geo.spatial import cities_geojson, city_spatial_summary, city_zones_geojson, nearest_cities
+from ..geo.spatial import (
+    cities_geojson, city_spatial_summary, city_zones_geojson, nearest_cities, zone_price_index_table,
+)
 
 router = APIRouter(prefix="/geo", tags=["geo"])
 
@@ -26,6 +28,16 @@ def zones_geojson(city_id: str):
     if not city:
         raise HTTPException(404, detail=f"City '{city_id}' not found")
     return city_zones_geojson(city)
+
+
+@router.get("/city/{city_id}/price-index")
+def zone_price_index(city_id: str):
+    """Zone-level land-price index: per-corridor current price, projected price,
+    implied CAGR and discount-to-core (Vision §3.4 — price per zone, not just city)."""
+    city = get_city(city_id)
+    if not city:
+        raise HTTPException(404, detail=f"City '{city_id}' not found")
+    return zone_price_index_table(city)
 
 
 @router.get("/city/{city_id}")

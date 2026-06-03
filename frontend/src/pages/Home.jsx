@@ -157,13 +157,14 @@ export default function Home() {
   return (
     <div style={{ background: 'var(--bg-base)', minHeight: '100vh' }}>
       {/* ── Hero Section ── */}
-      <div style={{ position: 'relative', overflow: 'hidden', isolation: 'isolate' }}>
+      <div style={{ position: 'relative', overflow: 'hidden', isolation: 'isolate', minHeight: 420 }}>
         {/* Hero Background Image */}
         <div style={{
           position: 'absolute', inset: 0,
           backgroundImage: 'url(/hero-bg.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center top',
+          backgroundRepeat: 'no-repeat',
           zIndex: 0,
         }} />
         {/* Gradient overlay */}

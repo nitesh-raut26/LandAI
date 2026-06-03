@@ -2,14 +2,17 @@
 from __future__ import annotations
 
 import json
+import os
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from . import audit, service
+from . import audit, oauth, service
 from .dependencies import get_current_user
 from .jwt import ACCESS_TTL_MIN, create_access_token, create_refresh_token, decode_token
 from .models import ApiKey, CompareHistory, RefreshSession, SavedCity, SavedSearch, UsageLog, User, WatchlistItem
@@ -121,13 +124,56 @@ def me(user: User = Depends(get_current_user)):
     return user
 
 
-@auth_router.post("/google")
-def google_oauth():
-    # Env-gated OAuth scaffold — NOT a working Google flow (honest 501).
-    raise HTTPException(
-        501,
-        "Google OAuth is scaffolded but not implemented. Set GOOGLE_CLIENT_ID/SECRET and complete auth/oauth.py.",
-    )
+@auth_router.post("/google", response_model=TokenOut)
+def google_oauth(
+    request: Request,
+    credential: str = Body(..., embed=True, description="Google ID token from Google Identity Services"),
+    db: Session = Depends(get_db),
+):
+    """Sign in with Google (Identity Services). The SPA obtains an ID-token
+    ``credential`` from the Google button and posts it here; we verify it against
+    Google's JWKS, find-or-create the user, and issue our own JWTs."""
+    if not oauth.enabled():
+        raise HTTPException(501, "Google OAuth is not configured. Set GOOGLE_CLIENT_ID to enable it.")
+    claims = oauth.verify_id_token(credential)
+    if not claims:
+        raise HTTPException(401, "Invalid Google credential.")
+    user = service.get_or_create_oauth_user(db, claims["email"])
+    audit.log_event(db, "login", user_id=user.id, ip=_client_ip(request), meta={"via": "google"})
+    return _issue_tokens(db, user, request)
+
+
+@auth_router.get("/google/login")
+def google_login():
+    """Begin the Google authorization-code redirect flow. Returns the consent URL
+    + a CSRF ``state`` the client should echo back. Needs GOOGLE_CLIENT_SECRET."""
+    if not oauth.code_flow_enabled():
+        raise HTTPException(501, "Google OAuth code flow not configured (need GOOGLE_CLIENT_ID + SECRET).")
+    state = secrets.token_urlsafe(16)
+    return {"authorize_url": oauth.authorization_url(state), "state": state}
+
+
+@auth_router.get("/google/callback")
+def google_callback(request: Request, code: str = "", state: str = "", db: Session = Depends(get_db)):
+    """OAuth redirect target: exchange the code, verify the ID token, issue our
+    JWTs, and bounce back to the SPA with tokens in the URL fragment."""
+    if not oauth.code_flow_enabled():
+        raise HTTPException(501, "Google OAuth code flow not configured.")
+    claims = oauth.exchange_code(code)
+    if not claims:
+        raise HTTPException(401, "Google authorization failed.")
+    user = service.get_or_create_oauth_user(db, claims["email"])
+    audit.log_event(db, "login", user_id=user.id, ip=_client_ip(request), meta={"via": "google_code"})
+    tokens = _issue_tokens(db, user, request)
+    frontend = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    frag = f"access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
+    return RedirectResponse(url=f"{frontend}/login#{frag}", status_code=302)
+
+
+@auth_router.get("/google/status")
+def google_status():
+    """Whether Google sign-in is available (honest, env-gated) — drives the UI button."""
+    return {"enabled": oauth.enabled(), "code_flow": oauth.code_flow_enabled()}
 
 
 @auth_router.get("/tiers")

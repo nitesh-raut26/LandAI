@@ -61,6 +61,70 @@ def _future_dev_probability(city: dict) -> float:
     return round(min(s, 100), 1)
 
 
+# ── Investor Persona Mode (Vision §3.5) ──────────────────────────────────────
+# Each persona re-weights the SAME transparent sub-scores to reframe the composite
+# for a different buyer. "balanced" reproduces the original weighting exactly, so
+# the default API output is unchanged. Weights are over these components and must
+# sum to 1.0: roi, demand, fdp (future-dev), infra, conn, eco, risk_inv (=100-risk),
+# liquidity. No new model — just an honest re-prioritisation of existing signals.
+PERSONAS: dict[str, dict[str, Any]] = {
+    "balanced": {
+        "label": "Balanced",
+        "focus": "An even view across appreciation, demand, development and risk.",
+        "weights": {"roi": 0.26, "demand": 0.18, "fdp": 0.16, "infra": 0.12,
+                    "conn": 0.10, "eco": 0.10, "risk_inv": 0.08, "liquidity": 0.00},
+    },
+    "small": {
+        "label": "Small Investor",
+        "focus": "Affordability, capital safety and the ability to exit — for a first/retail buyer.",
+        "weights": {"risk_inv": 0.24, "liquidity": 0.22, "roi": 0.18, "demand": 0.12,
+                    "conn": 0.10, "infra": 0.08, "eco": 0.06, "fdp": 0.00},
+    },
+    "builder": {
+        "label": "Builder / Developer",
+        "focus": "Development potential, infrastructure and absorption demand — for a developer.",
+        "weights": {"fdp": 0.26, "infra": 0.20, "demand": 0.18, "roi": 0.14,
+                    "conn": 0.10, "eco": 0.08, "risk_inv": 0.04, "liquidity": 0.00},
+    },
+    "nri": {
+        "label": "NRI Investor",
+        "focus": "Liquidity, connectivity and lower risk for a remotely-managed, longer hold.",
+        "weights": {"liquidity": 0.24, "conn": 0.20, "risk_inv": 0.18, "roi": 0.14,
+                    "infra": 0.12, "eco": 0.08, "demand": 0.04, "fdp": 0.00},
+    },
+}
+
+DEFAULT_PERSONA = "balanced"
+
+
+def normalize_persona(persona: str | None) -> str:
+    p = (persona or DEFAULT_PERSONA).strip().lower()
+    return p if p in PERSONAS else DEFAULT_PERSONA
+
+
+def personas_public() -> list[dict[str, Any]]:
+    """Persona catalogue for the UI toggle (key + label + focus)."""
+    return [{"key": k, "label": v["label"], "focus": v["focus"]} for k, v in PERSONAS.items()]
+
+
+def _composite_for(weights: dict[str, float], comps: dict[str, float]) -> float:
+    return round(sum(weights.get(k, 0.0) * comps[k] for k in comps), 1)
+
+
+def _persona_note(persona: str, sub: dict[str, Any]) -> str:
+    """One honest line on how this city fits the chosen persona's priorities."""
+    if persona == "small":
+        return (f"Affordability/safety lens: {sub['risk_level']} risk, liquidity {sub['liquidity_score']}/100. "
+                "Weighted toward capital protection and exit-ability over headline upside.")
+    if persona == "builder":
+        return (f"Developer lens: future-development {sub['future_development_probability']}/100, "
+                f"infrastructure {sub['infrastructure_score']}/100. Weighted toward buildable, absorbing demand.")
+    if persona == "nri":
+        return (f"NRI lens: liquidity {sub['liquidity_score']}/100, connectivity {sub['connectivity_score']}/100. "
+                "Weighted toward liquid, well-connected, lower-risk holds.")
+    return "Balanced view across appreciation, demand, development and risk."
+
+
 def _rationale(city: dict, sc: dict[str, Any]) -> dict[str, list[str]]:
     infra = city["infrastructure"]
     schemes = city.get("government_schemes", [])
@@ -91,7 +155,8 @@ def _rationale(city: dict, sc: dict[str, Any]) -> dict[str, list[str]]:
     return {"strengths": strengths[:4], "watch_outs": watch[:3] or ["Standard market risks apply."]}
 
 
-def compute_score(city: dict) -> dict[str, Any]:
+def compute_score(city: dict, persona: str | None = None) -> dict[str, Any]:
+    persona = normalize_persona(persona)
     infra_s = city["scores"]["infrastructure"]
     conn_s = city["scores"]["connectivity"]
     eco_s = city["scores"]["economic_activity"]
@@ -101,10 +166,13 @@ def compute_score(city: dict) -> dict[str, Any]:
     demand = _demand_score(city)
     fdp = _future_dev_probability(city)
 
-    composite = round(
-        roi * 0.26 + demand * 0.18 + fdp * 0.16 + infra_s * 0.12
-        + conn_s * 0.10 + eco_s * 0.10 + (100 - risk) * 0.08, 1
-    )
+    # Shared component vector — personas only change the weighting, not the signals.
+    comps = {
+        "roi": roi, "demand": demand, "fdp": fdp, "infra": infra_s,
+        "conn": conn_s, "eco": eco_s, "risk_inv": 100 - risk, "liquidity": liquidity,
+    }
+    weights = PERSONAS[persona]["weights"]
+    composite = _composite_for(weights, comps)
 
     sub = {
         "roi_score": roi,
@@ -123,9 +191,17 @@ def compute_score(city: dict) -> dict[str, Any]:
     except Exception:
         drivers = None
 
+    # Composite under every persona, so the UI can show the spread without N calls.
+    persona_scores = {k: _composite_for(v["weights"], comps) for k, v in PERSONAS.items()}
+
     return {
         "city_id": city["id"],
         "city_name": city["name"],
+        "persona": persona,
+        "persona_label": PERSONAS[persona]["label"],
+        "persona_focus": PERSONAS[persona]["focus"],
+        "persona_fit": _persona_note(persona, sub),
+        "persona_scores": persona_scores,
         "composite_score": composite,
         "headline_investment_score": city.get("investment_score"),
         "sub_scores": sub,

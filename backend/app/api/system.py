@@ -38,7 +38,7 @@ DATA_CLASSES: list[dict] = [
      "note": "real geometry; shape is driven by the heuristic forecast"},
     {"subsystem": "price_model", "label": "Land-price CAGR forecast",
      "data_class": "model", "source": "XGBoost on curated labels",
-     "update": "on train", "confidence": "CV R² 0.41 · 90% conformal interval"},
+     "update": "on train", "confidence": "CV R² 0.21 (leakage-audited) · 90% conformal interval"},
     {"subsystem": "cities", "label": "City database",
      "data_class": "curated", "source": "Curated (census-aligned + expert approximation)",
      "license": "internal", "update": "manual", "confidence": "directional"},
@@ -141,6 +141,12 @@ def metrics():
     # Honest disclosure of whether shared state is actually distributed.
     snap["shared_state_backend"] = store.backend_name()
     snap["distributed"] = store.is_distributed()
+    try:
+        from ..services.city_matcher import matcher_backend
+
+        snap["city_matcher_backend"] = matcher_backend()
+    except Exception:  # pragma: no cover - defensive
+        pass
     return snap
 
 

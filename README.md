@@ -36,7 +36,10 @@ frontend with an interactive map, city analysis, and side‑by‑side comparison
 | 📰 **NLP infrastructure signals** | TF‑IDF + rule‑based information extraction turns infrastructure announcements (highways, airports, metros, industrial corridors) into scored *leading indicators* with impact score and lead time. |
 | 🛰️ **CV urban‑growth raster** | `scipy.ndimage` morphology over per‑year urban‑footprint rasters → compactness, fragmentation, dominant growth direction, plus a rendered multi‑temporal growth PNG. |
 | 🌐 **Spatial / PostGIS** | shapely growth‑ring geometry served as GeoJSON; PostGIS‑ready via GeoAlchemy2 + a docker‑compose Postgres service (in‑memory fallback otherwise). |
-| 👯 **Historical twin matching** | "City DNA" cosine‑similarity finds a more‑developed twin and time‑shifts its trajectory to forecast the target city. |
+| 👯 **Historical twin matching** | "City DNA" cosine‑similarity finds a more‑developed twin and time‑shifts its trajectory to forecast the target city. **FAISS-accelerated** at scale (NumPy fallback, identical results). |
+| ⏳ **Time Machine** *(new)* | Replays a more‑developed twin's **real** price trajectory onto the target city's projected future — "where will it be in N years?". Data-driven (observed history + forecast CAGR), not satellite imagery. |
+| 🧑‍💼 **Investor Persona Mode** *(new)* | One toggle re‑weights the same transparent sub‑scores for a **Small Investor / Builder / NRI / Balanced** buyer, and shows the composite spread across personas. |
+| 🏷️ **Zone-level price index** *(new)* | Per‑corridor land price off the city core — entry price today, projected price, implied CAGR and discount‑to‑core for each growth zone. |
 | ⚖️ **City comparison** | Compare any two cities' growth curves, prices, and investment metrics. |
 | 🌍 **Live data ingestion** *(new)* | **Real, provenance-wrapped** OpenStreetMap amenities/infrastructure via the Overpass API + Nominatim geocoding. Every record carries `source · license · confidence · freshness`. ToS-protected listing portals are **compliance-gated (never scraped)**. See [`backend/app/ingestion`](backend/app/ingestion/README.md). |
 | 🛡️ **Data Trust Layer** *(new)* | Global **live / cached / offline / curated** state: a `BackendHealthBanner` + per‑panel `DataStatusBadge` (Live · Curated · Heuristic · Simulated · Offline), provenance strips, freshness + confidence meters — backed by `/api/system/*`. **No more silent fallback.** |
@@ -205,14 +208,19 @@ Base URL: `http://localhost:8000`
 |--------|------|-------------|
 | GET | `/api/predictions/{city_id}` | Growth forecast (`?horizon=5..25`) |
 | GET | `/api/predictions/{city_id}/full` | History + forecast + twin |
-| GET | `/api/predictions/{city_id}/similar` | Most similar cities (`?top=`) |
+| GET | `/api/predictions/{city_id}/similar` | Most similar cities (`?top=`) — **FAISS-backed** index, NumPy fallback |
 | GET | `/api/predictions/{city_id}/twin` | Best historical twin |
+| GET | `/api/predictions/{city_id}/time-machine` | **Time Machine** — replays the twin's real price trajectory onto this city's future |
+| GET | `/api/score/{city_id}?persona=` | Investment breakdown · **Investor Persona Mode** (`balanced\|small\|builder\|nri`) |
+| GET | `/api/score/personas` | Persona catalogue for the UI toggle |
 
 ### ML — XGBoost land‑price model
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/ml/model-info` | Model card: backend, train + 5‑fold CV R², RMSE/MAE, **conformal calibration**, feature importances |
 | GET | `/api/ml/price/{city_id}` | Predicted CAGR **+ 90% conformal interval** + price trajectory (with band) + TreeSHAP (`?horizon=3..20`) |
+| GET | `/api/ml/governance` | **ML governance** — scheduler state + registry summary + drift self-check |
+| GET / POST | `/api/ml/registry`, `/api/ml/registry/{v}/promote` | Model registry · promote/rollback (admin) |
 
 ### NLP — infrastructure signals
 | Method | Path | Description |
@@ -226,7 +234,8 @@ Base URL: `http://localhost:8000`
 |--------|------|-------------|
 | GET | `/api/geo/status` | Active backend (PostGIS vs in‑memory shapely) |
 | GET | `/api/geo/cities.geojson` | All cities as a GeoJSON point layer |
-| GET | `/api/geo/city/{city_id}/zones.geojson` | Growth‑zone polygons (extent + 5/10‑yr sectors) |
+| GET | `/api/geo/city/{city_id}/zones.geojson` | Growth‑zone polygons (extent + 5/10‑yr sectors) + per-zone price index |
+| GET | `/api/geo/city/{city_id}/price-index` | **Zone-level land-price index** — per-corridor price, projected price, implied CAGR, discount-to-core |
 | GET | `/api/geo/city/{city_id}` | Spatial summary (extent, radii, expansion ratio) |
 | GET | `/api/geo/nearby?lat=&lng=&radius_km=&top=` | Nearest cities to a point — PostGIS when attached, else in‑memory haversine (always works). Powers the GPS "near you" UI. |
 
@@ -271,12 +280,13 @@ Base URL: `http://localhost:8000`
 |--------|------|-------------|
 | POST | `/api/auth/register` · `/login` · `/refresh` | Email + password → JWT access + refresh tokens |
 | GET | `/api/auth/me` | Current user (Bearer token) |
-| POST | `/api/auth/logout` · `/google` | Logout (client-discard) · Google OAuth (scaffold → 501) |
+| POST | `/api/auth/logout` · `/logout-all` | Server-side logout — revokes the refresh session + denylists the token family |
+| POST / GET | `/api/auth/google` · `/google/status` · `/google/callback` | Google sign-in (Identity Services ID-token + auth-code flow); env-gated, real |
 | GET | `/api/auth/tiers` | Subscription tiers (Developer / Pro / Enterprise) |
 | GET / POST / DELETE | `/api/keys`, `/api/keys/{id}`, `/api/keys/{id}/regenerate` | API-key lifecycle (hashed; secret shown once) |
 | GET | `/api/account/usage`, `/api/account/saved-cities` | Quota usage · persisted saved cities |
 | GET | `/api/v1/city\|ml\|score/{id}` | **Metered Developer API** — requires `X-API-Key`, returns `X-Quota-*` headers |
-| GET / POST | `/api/billing/status`, `/api/billing/webhook` | Billing status + webhook — **architecture only, not live** |
+| POST / GET | `/api/billing/checkout`, `/api/billing/status`, `/api/billing/webhook` | Billing — **Razorpay-ready**: live when `RAZORPAY_KEY_ID/SECRET` set, else no-op |
 
 **Example**
 ```bash
@@ -351,8 +361,8 @@ Every subsystem is classified honestly. **Nothing here is fabricated or randomly
 
 ### ⚠️ Known trust gaps (being honest)
 1. **Silent frontend fallback — ✅ FIXED (Stage 4 Data Trust Layer).** A global trust layer makes fallback visible: [`DataTrustContext`](frontend/src/context/DataTrustContext.jsx) polls [`/api/system/health`](backend/app/api/system.py); a `BackendHealthBanner` shows *"Backend unavailable — curated offline snapshot"* when unreachable, and every panel carries a `DataStatusBadge` (Live · Curated · Heuristic · Simulated · Offline). The Navbar's old hardcoded "Live" is gone. (The live `/api/live/*` endpoints already fail honestly with `available:false`.)
-2. **Leakage risk in the price model.** The top feature `urban_area_cagr_01_21` (2001–2021) overlaps the target window (price CAGR 2010–2021) and is not knowable at forward‑prediction time. Treat CAGR as directional; a production retrain should use only pre‑window features.
-3. **Small sample.** n=116 ⇒ train R² 0.969 vs CV R² 0.411 (overfit). Conformal intervals are wide and coverage is approximate.
+2. **Leakage in the price model — ✅ FIXED (leakage-audited retrain).** Label-window features (e.g. `urban_area_cagr_01_21`, `growth_phase_rank`, 2021 snapshots) overlapped the target window (price CAGR 2010–2021) and were **removed**; the model now trains on 8 structural / ≈2001 features only. Headline R² dropped honestly as a result — that's the metric becoming truthful. Full audit at [`/api/ml/leakage-audit`](backend/app/ml/price_model.py).
+3. **Small sample.** n=116 ⇒ train R² 0.906 vs CV R² 0.215 (5-fold; repeated-KFold 0.206 ± 0.044). The gap is expected for a small structural model — conformal intervals are wide and coverage is approximate.
 
 ---
 
@@ -373,11 +383,12 @@ Every subsystem is classified honestly. **Nothing here is fabricated or randomly
 ## 🧠 Model Cards
 
 ### XGBoost land‑price CAGR model — `backend/app/ml/price_model.py`
-- **Task:** regress historical land‑price CAGR (2010→2021) from 17 infra/demographic features, then project forward.
-- **Training data:** 116 curated cities (cross‑sectional); labels derived from curated prices.
-- **Validation:** 5‑fold CV — **train R² 0.969 · CV R² 0.411 · RMSE 0.0022 · MAE 0.0017** (live at `/api/ml/model-info`).
-- **Uncertainty:** **CV+ split‑conformal** intervals — `q̂ = 0.0153` CAGR, **90% nominal / 92.2% empirical OOF coverage**, n_cal = 116.
-- **Explainability:** per‑prediction **TreeSHAP** + global importances. Top drivers: urban_area_cagr (0.33), growth_phase_rank (0.15), population_density (0.08).
+- **Task:** regress historical land‑price CAGR (2010→2021) from **8 leakage‑audited structural / ≈2001 features**, then project forward.
+- **Training data:** 116 curated cities (cross‑sectional); labels derived from curated prices. Label-window-overlapping features were removed — see [`/api/ml/leakage-audit`](backend/app/ml/price_model.py).
+- **Validation:** 5‑fold CV — **train R² 0.906 · CV R² 0.215 · repeated‑KFold 0.206 ± 0.044 · RMSE 0.0038 · MAE 0.0028** (live at `/api/ml/model-info`).
+- **Uncertainty:** **CV+ split‑conformal** intervals — `q̂ = 0.016` CAGR, **90% nominal / 92.2% empirical OOF coverage**, n_cal = 116.
+- **Explainability:** per‑prediction **TreeSHAP** + global importances. Top drivers: population_density_2001 (0.22), log_population_2001 (0.18), has_university (0.16), tier (0.14).
+- **Governance:** versioned in the model **registry** with promote/rollback, plus a background **governance scheduler** (registry snapshot + drift self-check; env-gated recurring run) — see `/api/ml/governance`.
 - **Limitations & biases:** small‑n overfit (train ≫ CV); **leakage risk** (top feature window overlaps target); curated labels; output clamped to [0, 35%]. **Directional, not investment‑grade.**
 - **Intended use:** relative ranking & exploration. **Misuse:** not a sole basis for transactions. **Fallback:** scikit‑learn GBR if XGBoost is unavailable.
 
@@ -401,20 +412,20 @@ Transparent weighted sub‑scores (ROI/risk/liquidity/demand/future‑dev) + rea
 |---|---|---|---|---|---|
 | Live OSM ingestion | 🟢 real | ✅ | ✅ | 🟡 | global Overpass / self‑host; shared persistence |
 | Provenance + compliance gate | 🟢 real | ✅ | ✅ | ✅ | — |
-| XGBoost + conformal + SHAP | 🟢 real | 🟡 | ✅ | 🟡 | bigger real dataset; fix leakage |
+| XGBoost + conformal + SHAP | 🟢 real | ✅ | ✅ | 🟡 | ✅ leakage fixed + registry/drift scheduler; bigger real dataset next |
 | Growth forecast | 🟠 heuristic | 🟡 | ✅ (labelled) | ❌ | learned model + real intervals |
 | Spatial / GeoJSON | 🟢 real | ✅ | ✅ | 🟡 | PostGIS at scale, vector tiles |
 | NLP signals | 🟠 classical | 🟡 | ✅ | ❌ | live news feed + transformer |
 | CV raster | 🔵 simulated | 🟡 | ✅ | ❌ | satellite segmentation model |
 | Copilot | 🟠 heuristic | ✅ | ✅ | 🟡 | LLM + RAG over provenance |
-| Frontend | 🟢 works | ✅ | ✅ | 🟡 | auth/session; wire ProvenanceStrip into more panels |
-| Data Trust Layer | 🟢 real | ✅ | ✅ | ✅ | deeper per‑panel provenance wiring |
-| Auth (JWT + API keys + quota) | 🟢 real | ✅ | ✅ persisted | 🟡 | RBAC partial; OAuth scaffold; cookie/CSRF hardening |
-| Billing / payments | 🟡 scaffold | — | — | ❌ | **not live** — needs a provider (Stripe/Razorpay) |
+| Frontend | 🟢 works | ✅ | ✅ | ✅ | ✅ ProvenanceStrip wired into Analytics/Compare/Copilot + Persona/Zone/Time-Machine panels |
+| Data Trust Layer | 🟢 real | ✅ | ✅ | ✅ | ✅ per‑panel provenance wired across the app |
+| Auth (JWT + API keys + quota) | 🟢 real | ✅ | ✅ persisted | ✅ | server-side revocation + **Google OAuth** wired (env-gated); cookie/CSRF hardening next |
+| Billing / payments | 🟢 Razorpay-ready | ✅ | ✅ event table | 🟡 | **goes live when `RAZORPAY_KEY_ID/SECRET` set**; no-op until then |
 | Persistence (Postgres/Redis/Celery) | 🟡 optional / not running | 🟡 | — | ❌ | wire Celery Beat + Redis + migrations |
 | Observability | 🟢 metrics + request IDs + structured logs | ✅ | — | 🟡 | export to Prometheus / OTel / Grafana at fleet scale |
 
-- **Highest‑risk gaps:** (1) ~~silent frontend fallback~~ — ✅ fixed (Data Trust Layer); (2) price‑model leakage + small n (credibility); (3) ~~inbound rate‑limit~~ — ✅ added; the remaining gap is no inbound **auth** on the public API.
+- **Highest‑risk gaps:** (1) ~~silent frontend fallback~~ — ✅ fixed (Data Trust Layer); (2) ~~price‑model leakage~~ — ✅ fixed (leakage-audited retrain), small n remains; (3) ~~inbound rate‑limit~~ — ✅ added; (4) ~~no inbound auth~~ — ✅ JWT + API keys + quota.
 - **Highest‑impact next:** wire live OSM features into scoring/ML; visible provenance badges; add the Census/data.gov.in feed.
 - **Fastest monetization:** API‑key tier + quota on `/api/live/*` — ingestion is the defensible, real moat.
 - **Biggest tech debt:** no running persistence layer; ingestion cache is on‑disk per‑process.
@@ -441,9 +452,9 @@ Transparent weighted sub‑scores (ROI/risk/liquidity/demand/future‑dev) + rea
 | Data Trust Layer | ✅ | ✅ | n/a | ✅ | ✅ |
 | Observability | ✅ | ✅ self | n/a | n/a | 🟡 export pending |
 | Auth + API keys + quota | ✅ | ✅ auth-metrics | ✅ | n/a | 🟡 OAuth/orgs partial |
-| Billing | 🟡 not-live | — | — | — | ❌ |
+| Billing | 🟢 Razorpay-ready | ✅ status | ✅ event table | n/a | 🟡 live on keys |
 
-**Remaining blind spots:** ~~no inbound auth~~ — ✅ JWT + API keys + quota added (Stage 5); billing is **scaffold-only (not live)**; metrics are in‑process (not exported); **Analytics / Compare / Copilot** panels not yet provenance‑wrapped; OAuth + organizations + Alembic migrations are partial/next.
+**Remaining blind spots:** ~~no inbound auth~~ — ✅ JWT + API keys + quota; ~~billing scaffold-only~~ — ✅ **Razorpay provider** wired (HMAC-verified webhook + checkout), live when keys are set; ~~Analytics/Compare/Copilot not provenance-wrapped~~ — ✅ wired; ~~Google OAuth 501~~ — ✅ real flow (env-gated); ~~no server-side token revocation~~ — ✅ refresh-session + family denylist. Still next: metrics export (Prometheus/OTel), running Celery/Redis, organizations/teams, Alembic-by-default.
 
 ---
 
@@ -483,9 +494,9 @@ flowchart LR
 - **RBAC**: `user` / `analyst` / `admin`; `/api/system/auth-metrics` is admin-only.
 
 ### Honest limitations (implemented vs planned)
-- **Billing is NOT live** — [`app/billing/`](backend/app/billing) is a provider abstraction + webhook-ready stub (`NoopProvider`); no charges occur. Stripe/Razorpay plug in at `service.get_provider()`.
-- **Google OAuth** is **scaffolded, not implemented** (`/api/auth/google` → 501 until configured).
-- **Token revocation** is client-side discard today; a server-side `jti` denylist is next.
+- **Billing — Razorpay-ready, dark until keyed.** [`app/billing/`](backend/app/billing) ships a real [`RazorpayProvider`](backend/app/billing/providers/razorpay.py) (order checkout + **HMAC-SHA256 webhook verification**); `service.get_provider()` auto-selects it when `RAZORPAY_KEY_ID/SECRET` are set, else the `NoopProvider`. No charge can occur without real keys.
+- **Google OAuth — implemented, env-gated.** [`/api/auth/google`](backend/app/auth/oauth.py) verifies a Google Identity-Services ID token (RS256 against Google's JWKS) and issues our JWTs; an auth-code redirect flow (`/google/login` + `/google/callback`) is also wired. Returns a clear "not configured" until `GOOGLE_CLIENT_ID` is set.
+- **Token revocation — server-side.** Refresh sessions are persisted (`refresh_sessions`); logout/logout-all revoke the jti and **denylist the token family**, killing the matching access token within its TTL. Reuse of a rotated token burns the whole family.
 - **Migrations**: dev uses `create_all`; Alembic is the documented production path.
 - **Organizations / teams** are partial (roles exist; org accounts are roadmap).
 
@@ -495,15 +506,16 @@ flowchart LR
 | Email/password auth (JWT) | ✅ | ✅ hashed + lockout | ✅ | n/a | 🟡 cookie/CSRF · OAuth |
 | API keys + quota | ✅ | ✅ hashed · shown once | ✅ | ✅ metered `/api/v1` | 🟡 |
 | Subscription tiers | ✅ structural | ✅ gating | ✅ | ✅ gating | 🟡 |
-| Billing | ✅ "not live" stated | n/a | event table | ❌ no provider | ❌ |
+| Billing | ✅ Razorpay-ready | ✅ HMAC webhook | ✅ event table | ✅ on keys | 🟡 live on keys |
 | RBAC | ✅ roles | ✅ admin-gated | ✅ | n/a | 🟡 orgs partial |
+| Google OAuth | ✅ env-gated | ✅ JWKS-verified | ✅ user upsert | n/a | 🟡 |
 | Saved cities / usage | ✅ | ✅ per-user | ✅ | n/a | ✅ |
 
-**Biggest remaining gaps:** live billing provider; production OAuth; refresh-token revocation list;
-organizations/teams; Alembic migrations; move rate-limit + metrics state to Redis for multi-replica.
+**Biggest remaining gaps:** organizations/teams; Alembic-by-default; move rate-limit + metrics state to
+Redis and run Celery Beat for multi-replica; export metrics to Prometheus/OTel.
 
 Setup: copy [`backend/.env.example`](backend/.env.example) → `.env`; set `JWT_SECRET` (required in prod)
-and `AUTH_DATABASE_URL` (Postgres in prod). Tests: `cd backend && ./venv/bin/python -m pytest tests -q` (66 passing).
+and `AUTH_DATABASE_URL` (Postgres in prod). Tests: `cd backend && ./venv/bin/python -m pytest tests -q` (**136 passing across 24 files**).
 
 ---
 
@@ -543,7 +555,7 @@ Measured warm, in‑process (Apple Silicon, single core; indicative):
 | GeoJSON growth zones (shapely) | ~0.6 ms |
 | NLP signals per city | ~0.7 ms |
 | CV raster metrics (scipy, 200² grid) | ~4.7 ms |
-| Test suite (31 tests) | ~1.4 s |
+| Test suite (136 tests / 24 files) | ~7 s |
 | Live amenities — cache **hit** | disk read (~ms) |
 | Live amenities — cache **miss** | one Overpass round‑trip (~1–3 s, network‑bound) + throttle |
 

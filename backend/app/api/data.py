@@ -11,13 +11,47 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from ..data.cities_data import get_all_cities, get_city
 from ..geo.spatial import zone_price_index_table
 from ..store_circle_rates import PRICE_STORE
 
 router = APIRouter(prefix="/data", tags=["data-coverage"])
+
+# Registered state circle-rate sources (key → published portal).
+_SOURCE_REGISTRY = [
+    ("maharashtra_igr", "Maharashtra IGR — Annual Statement of Rates (ASR)",
+     "https://easr.igrmaharashtra.gov.in/"),
+    ("karnataka_kaveri", "Karnataka Kaveri Online Services — Guidance Value",
+     "https://kaverionline.karnataka.gov.in"),
+    ("telangana_igrs", "Telangana IGRS — Dharani Guidance Values",
+     "https://registration.telangana.gov.in/guidancevalue.htm"),
+]
+
+
+def _data_sources() -> list[dict[str, Any]]:
+    """Per-source verification status — reflects whether a verified official
+    artifact is present (→ real) or the data is still an unverified transcription
+    (→ curated). Honest and dynamic: drop in an artifact and this flips to real."""
+    from ..ingestion.scrapers.circle_rates.artifact_loader import artifact_status
+
+    out = []
+    for key, label, url in _SOURCE_REGISTRY:
+        st = artifact_status(key)
+        verified = st.get("verified", False)
+        out.append({
+            "source_key": key,
+            "source": st.get("source") or label,
+            "license": "GODL-India",
+            "source_url": st.get("source_url") or url,
+            "verification_status": "source_verified" if verified else "unverified_transcription",
+            "data_class": "real" if verified else "curated",
+            **({"artifact_sha256": st["artifact_sha256"],
+                "source_document": st.get("source_document"),
+                "retrieved_at": st.get("retrieved_at")} if verified else {}),
+        })
+    return out
 
 
 @router.get("/coverage")
@@ -51,34 +85,15 @@ async def global_coverage() -> dict[str, Any]:
             }
             for s, v in sorted(state_coverage.items())
         },
-        "data_sources": [
-            {
-                "source_key": "maharashtra_igr",
-                "source": "Maharashtra IGR — Annual Statement of Rates (ASR) 2023-24",
-                "license": "GODL-India",
-                "source_url": "https://igrmaharashtra.gov.in/english/pages/RRRates.aspx",
-                "data_class": "real",
-            },
-            {
-                "source_key": "karnataka_kaveri",
-                "source": "Karnataka Kaveri Online Services — Guidance Value 2023-24",
-                "license": "GODL-India",
-                "source_url": "https://kaverionline.karnataka.gov.in",
-                "data_class": "real",
-            },
-            {
-                "source_key": "telangana_igrs",
-                "source": "Telangana IGRS — Dharani Guidance Values 2023-24",
-                "license": "GODL-India",
-                "source_url": "https://registration.telangana.gov.in/guidancevalue.htm",
-                "data_class": "real",
-            },
-        ],
+        "data_sources": _data_sources(),
         "honesty_note": (
-            "Coverage 🟢 Real means the zone price is sourced from a government-published "
-            "guidance value (circle rate). 🟠 Heuristic means the zone price is derived "
-            "from a distance-decay formula off the city core price — transparent but not "
-            "a real market observation."
+            "Data class is gated on verifiability, not on source type. 🟢 Real = a "
+            "VERIFIED government guidance value (backed by a committed source artifact). "
+            "🟡 Curated = a believed-government circle rate whose transcription is NOT yet "
+            "verified against the source gazette — honest, not 'real'. 🟠 Heuristic = a "
+            "distance-decay estimate off the city core price. Government datasets are "
+            "currently 'unverified_transcription'; committing the official gazette extract "
+            "(with SHA-256) promotes them to 'real'. See /api/ml/model-info for formulas."
         ),
     }
 
@@ -128,6 +143,47 @@ async def refresh_all() -> dict[str, Any]:
         "total_observations": sum(results.values()),
         "refreshed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
+
+
+def _scrape_live_into_store(city_id: str, city_name: str) -> None:
+    """Background worker: live-scrape circle rates and load them (real) into the store."""
+    try:
+        from ..ingestion.scrapers.circle_rates.maharashtra_live import MaharashtraLiveASRScraper
+        obs = MaharashtraLiveASRScraper().fetch_city(city_id, city_name)
+        if obs:
+            PRICE_STORE.clear_city(city_id)
+            PRICE_STORE.put_many(obs)
+    except Exception:
+        pass
+
+
+@router.post("/scrape-live/{city_id}")
+async def scrape_live(city_id: str, background_tasks: BackgroundTasks) -> dict[str, Any]:
+    """Trigger a LIVE headless-browser scrape of the official portal for a city
+    (real data → data_class='real', verification='live_fetched'). Runs in the
+    background (the browser cascade is slow); results land in the price store.
+
+    Requires Playwright/Chromium in the server environment. For persistence across
+    restarts, use ``scripts/scrape_mh_easr.py`` to write a committed artifact."""
+    from ..ingestion.scrapers.circle_rates.maharashtra_live import available, CITY_PLANS
+
+    city = get_city(city_id)
+    if not city:
+        raise HTTPException(status_code=404, detail=f"City '{city_id}' not found")
+    if not available():
+        raise HTTPException(status_code=503, detail={
+            "error": "scraper_unavailable",
+            "message": "Playwright/Chromium not installed in this environment. "
+                       "pip install playwright && python -m playwright install chromium",
+        })
+    if city_id not in CITY_PLANS:
+        raise HTTPException(status_code=400, detail={
+            "error": "no_scrape_plan",
+            "message": f"No live-scrape plan for '{city_id}'. Supported: {sorted(CITY_PLANS)}",
+        })
+    background_tasks.add_task(_scrape_live_into_store, city_id, city["name"])
+    return {"status": "scraping", "city_id": city_id,
+            "message": "Live scrape started in background. Poll /api/data/coverage/{city_id} for results."}
 
 
 @router.post("/refresh/{city_id}")

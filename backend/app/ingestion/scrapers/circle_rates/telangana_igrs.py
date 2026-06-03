@@ -118,7 +118,6 @@ class TelanganaIGRSAdapter(CircleRateAdapter):
                 source_url=self.data_source_url,
                 license="GODL-India",
                 confidence=self.extraction_confidence,
-                data_class="real",
                 raw={"guidance_year": "2023-24", "state": "Telangana"},
             ))
         return result

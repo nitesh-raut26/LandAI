@@ -16,8 +16,10 @@ confidence to 0.95+. Wire that when a portal ToS review confirms bulk access
 is permitted. The current seed dataset is sourced from publicly published
 2023–2024 ASR rate books and is accurately reproducible — it is NOT fabricated.
 
-Data class: "real" — these are government-published mandatory guidance values,
-not estimates or listing-portal prices.
+Data class: DERIVED — these are believed-government guidance values but the seed
+is a hand transcription, so verification_status="unverified_transcription" ⇒
+data_class="curated" (honest) until a committed gazette artifact promotes it to
+"real". See base_circle.py for the strict verification gate.
 """
 from __future__ import annotations
 
@@ -150,7 +152,6 @@ class MaharashtraASRAdapter(CircleRateAdapter):
                 source_url=self.data_source_url,
                 license="GODL-India",
                 confidence=self.extraction_confidence,
-                data_class="real",
                 raw={"asr_year": "2023-24", "state": "Maharashtra"},
             ))
         return result

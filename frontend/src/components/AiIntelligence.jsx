@@ -80,7 +80,7 @@ export default function AiIntelligence({ cityId }) {
   const contribs = ml?.top_feature_contributions || []
   const maxAbs = Math.max(0.0001, ...contribs.map(c => Math.abs(c.contribution)))
   const cov = ml?.predicted_cagr_interval_pct?.nominal_coverage
-  const mlNote = `${cov ? Math.round(cov * 100) + '% conformal interval · ' : ''}trained on 116 curated rows (CV R² ≈ 0.41). Directional, not investment advice.`
+  const mlNote = `${cov ? Math.round(cov * 100) + '% conformal interval · ' : ''}trained on 116 curated rows (leakage-audited; CV R² ≈ 0.21). Directional, not investment advice.`
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

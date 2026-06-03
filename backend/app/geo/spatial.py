@@ -153,21 +153,24 @@ def _real_price_for_zone(
     yrs = max(horizon_years, 1)
     cagr = ((projected / current_price) ** (1.0 / yrs) - 1.0) if current_price > 0 else 0.0
 
-    # Build provenance from the best-confidence candidate
+    # Build provenance from the best-confidence candidate. The data_class is the
+    # observation's own honesty-gated class (curated for unverified govt data,
+    # real only once verified) — never hardcoded to "real".
     best = max(candidates, key=lambda o: o.confidence)
     return {
-        "price_index": 1.0,        # real price is the ground truth; no decay index
+        "price_index": 1.0,        # observed price is the ground truth; no decay index
         "current_price_inr_per_sqft": current_price,
         "projected_price_inr_per_sqft": projected,
         "implied_price_cagr_pct": round(cagr * 100, 2),
-        "discount_to_core_pct": 0.0,  # real observed; no synthetic discount
-        "data_class": "real",
+        "discount_to_core_pct": 0.0,  # observed; no synthetic discount
+        "data_class": best.data_class,
         "provenance": {
             "source": best.source,
             "source_url": best.source_url,
             "license": best.license,
             "effective_date": best.effective_date.isoformat(),
             "confidence": best.confidence,
+            "verification_status": best.verification_status,
             "localities_matched": len(candidates),
             "basis": best.basis,
         },
@@ -300,8 +303,20 @@ def zone_price_index_table(city: dict) -> dict[str, Any]:
     cheapest = min(rows, key=lambda r: r["current_price_inr_per_sqft"]) if rows else None
     hottest = max(rows, key=lambda r: r["implied_price_cagr_pct"]) if rows else None
 
-    # Count real vs heuristic zones for transparency
+    # Count zones by honest data_class for transparency. Government circle-rate
+    # zones are "curated" (govt guidance, unverified transcription) until verified;
+    # only verified observations are "real". Everything else is "heuristic".
     real_count = sum(1 for r in rows if r.get("data_class") == "real")
+    curated_count = sum(1 for r in rows if r.get("data_class") == "curated")
+    govt_count = real_count + curated_count          # backed by a government source
+    heuristic_count = len(rows) - govt_count
+
+    if real_count:
+        overall = "real"
+    elif curated_count:
+        overall = "curated"
+    else:
+        overall = "heuristic"
 
     return {
         "city_id": city["id"],
@@ -312,10 +327,12 @@ def zone_price_index_table(city: dict) -> dict[str, Any]:
         "cheapest_zone_id": cheapest["zone_id"] if cheapest else None,
         "highest_appreciation_zone_id": hottest["zone_id"] if hottest else None,
         "coverage": {
-            "real_zones": real_count,
-            "heuristic_zones": len(rows) - real_count,
+            "real_zones": real_count,           # verified government data
+            "curated_zones": curated_count,     # govt guidance, unverified transcription
+            "govt_backed_zones": govt_count,    # real + curated (any government source)
+            "heuristic_zones": heuristic_count,
             "total_zones": len(rows),
-            "data_class": "real" if real_count > 0 else "heuristic",
+            "data_class": overall,
         },
     }
 

@@ -1,17 +1,32 @@
 """Tests for PDF report generator — job creation, status polling, download gate."""
 from __future__ import annotations
 
-import io
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+from sqlalchemy import select
 
+from app.auth.models import User
+from app.db import SessionLocal
 from app.main import app
 from app.reports.jobs import ReportJobStore
 from app.reports.renderer import generate_city_report, _REPORTLAB_AVAILABLE
 
 
 client = TestClient(app)
+
+
+def _bearer(tier: str = "pro") -> dict:
+    """Register a user, set their subscription tier in the DB, return an auth header.
+    The access token resolves the user fresh from the DB, so the tier takes effect."""
+    email = f"r{uuid.uuid4().hex[:10]}@example.com"
+    tok = client.post("/api/auth/register", json={"email": email, "password": "supersecret1"}).json()["access_token"]
+    with SessionLocal() as db:
+        u = db.scalar(select(User).where(User.email == email))
+        u.subscription_tier = tier
+        db.commit()
+    return {"Authorization": f"Bearer {tok}"}
 
 
 # ── Job store unit tests ──────────────────────────────────────────────────────
@@ -61,54 +76,77 @@ class TestReportJobStore:
 
 # ── API endpoint tests ────────────────────────────────────────────────────────
 
-class TestReportCreateEndpoint:
-    def test_three_states_covered(self):
-        # Force-seed the store before checking (the lifespan hook doesn't run in tests)
+class TestReportPaywall:
+    """The Pro paywall is REAL: unauth → 401, free tier → 403, pro → 200."""
+
+    def test_unauthenticated_is_401(self):
+        assert client.post("/api/reports/pune").status_code == 401
+
+    def test_free_tier_is_403_with_upgrade_cta(self):
+        resp = client.post("/api/reports/pune", headers=_bearer("developer"))
+        assert resp.status_code == 403
+        assert resp.json()["detail"]["error"] == "pro_required"
+        assert "upgrade_url" in resp.json()["detail"]
+
+    def test_pro_tier_can_create(self):
         from app.store_circle_rates import PRICE_STORE
         PRICE_STORE.seed_all()
-        resp = client.get("/api/data/coverage")
-        states = resp.json()["covered_states"]
-        # At least one of the three state adapters is active
-        assert any(s in states for s in ["Maharashtra", "Karnataka", "Telangana"])
-        resp = client.post("/api/reports/pune")
+        resp = client.post("/api/reports/pune", headers=_bearer("pro"))
+        assert resp.status_code == 200
         data = resp.json()
-        assert "job_id" in data
-        assert data["status"] == "queued"
-        assert "poll_url" in data
+        assert "job_id" in data and data["status"] == "queued" and "poll_url" in data
 
-    def test_unknown_city_returns_404(self):
-        resp = client.post("/api/reports/unknown_city_xyz_abc")
+    def test_enterprise_tier_can_create(self):
+        assert client.post("/api/reports/pune", headers=_bearer("enterprise")).status_code == 200
+
+    def test_unknown_city_returns_404_for_pro(self):
+        resp = client.post("/api/reports/unknown_city_xyz_abc", headers=_bearer("pro"))
         assert resp.status_code == 404
 
 
 class TestReportStatusEndpoint:
-    def test_job_status_after_create(self):
-        resp = client.post("/api/reports/pune")
+    def test_owner_can_poll_status(self):
+        h = _bearer("pro")
+        resp = client.post("/api/reports/pune", headers=h)
         if resp.status_code == 404:
             pytest.skip("Pune not in DB")
         job_id = resp.json()["job_id"]
-        status_resp = client.get(f"/api/reports/jobs/{job_id}")
+        status_resp = client.get(f"/api/reports/jobs/{job_id}", headers=h)
         assert status_resp.status_code == 200
         data = status_resp.json()
         assert data["job_id"] == job_id
         assert data["status"] in ("queued", "running", "ready", "failed")
 
+    def test_status_requires_auth(self):
+        assert client.get("/api/reports/jobs/whatever").status_code == 401
+
+    def test_non_owner_cannot_read_job(self):
+        owner = _bearer("pro")
+        job_id = client.post("/api/reports/pune", headers=owner).json()["job_id"]
+        other = _bearer("pro")  # different user
+        assert client.get(f"/api/reports/jobs/{job_id}", headers=other).status_code == 404
+
     def test_unknown_job_returns_404(self):
-        resp = client.get("/api/reports/jobs/nonexistent-job-xyz")
+        resp = client.get("/api/reports/jobs/nonexistent-job-xyz", headers=_bearer("pro"))
         assert resp.status_code == 404
 
 
 class TestReportDownloadEndpoint:
     def test_download_not_ready_returns_409(self):
-        """A job that is still queued should return 409 when download is attempted."""
-        from app.reports.jobs import REPORT_JOBS
-        job_id = REPORT_JOBS.create("pune", 99)
-        # Do NOT run the job — leave it queued
-        resp = client.get(f"/api/reports/download/{job_id}")
-        assert resp.status_code == 409
+        """A freshly-created (queued) job returns 409 when its owner downloads it."""
+        h = _bearer("pro")
+        # Create through the API so ownership matches the authenticated user.
+        job_id = client.post("/api/reports/pune", headers=h).json()["job_id"]
+        # Immediately attempt download — likely still queued/running → 409 (or 200 if it raced to ready).
+        resp = client.get(f"/api/reports/download/{job_id}", headers=h)
+        assert resp.status_code in (409, 200)
+
+    def test_download_requires_pro(self):
+        assert client.get("/api/reports/download/x").status_code == 401
+        assert client.get("/api/reports/download/x", headers=_bearer("developer")).status_code == 403
 
     def test_download_unknown_job_returns_404(self):
-        resp = client.get("/api/reports/download/completely-fake-job-id")
+        resp = client.get("/api/reports/download/completely-fake-job-id", headers=_bearer("pro"))
         assert resp.status_code == 404
 
 

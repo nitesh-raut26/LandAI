@@ -63,9 +63,12 @@ def _fmt_pct(v: float) -> str:
 
 
 def _data_class_badge(dc: str) -> str:
-    """Text badge for data class."""
+    """Honest text badge for data class. Government guidance values that are not
+    yet verified against a committed source artifact are 'curated', never 'Real'."""
     if dc == "real":
-        return "🟢 Real"
+        return "🟢 Real (verified)"
+    if dc == "curated":
+        return "🟡 Govt guidance (unverified)"
     if dc == "heuristic":
         return "🟠 Heuristic"
     return dc
@@ -174,10 +177,15 @@ def generate_city_report(
 
     coverage = zone_table.get("coverage", {})
     real_zones = coverage.get("real_zones", 0)
+    curated_zones = coverage.get("curated_zones", 0)
+    govt_zones = coverage.get("govt_backed_zones", real_zones + curated_zones)
     total_zones = coverage.get("total_zones", 0)
     coverage_note = (
-        f"{real_zones}/{total_zones} zones backed by real government circle-rate data. "
-        f"🟢 Real = government guidance value (GODL-India). "
+        f"{govt_zones}/{total_zones} zones backed by a government circle-rate source "
+        f"({real_zones} verified, {curated_zones} unverified transcription). "
+        f"🟢 Real = verified government guidance value. "
+        f"🟡 Govt guidance (unverified) = believed-government value, transcription "
+        f"pending source-artifact verification. "
         f"🟠 Heuristic = distance-decay model (transparent formula)."
     )
     story.append(Paragraph(coverage_note, small))
@@ -191,9 +199,15 @@ def generate_city_report(
         for z in zones:
             dc = z.get("data_class", "heuristic")
             prov = z.get("provenance") or {}
-            source_label = "🟢 " + prov.get("source", "")[:30] if dc == "real" else "🟠 Heuristic"
-            if dc == "real" and prov.get("effective_date"):
-                source_label += f"\n({prov['effective_date']})"
+            if dc in ("real", "curated"):
+                icon = "🟢" if dc == "real" else "🟡"
+                source_label = f"{icon} " + (prov.get("source", "") or "")[:26]
+                if prov.get("effective_date"):
+                    source_label += f"\n({prov['effective_date']})"
+                if dc == "curated":
+                    source_label += "\nunverified transcription"
+            else:
+                source_label = "🟠 Heuristic"
             tbl_data.append([
                 z.get("label", z.get("zone_id", ""))[:22],
                 z.get("direction", ""),
@@ -224,6 +238,8 @@ def generate_city_report(
             tbl_style.append(("BACKGROUND", (0, i), (-1, i), bg))
             if dc == "real":
                 tbl_style.append(("TEXTCOLOR", (6, i), (6, i), _to_rl(_ACCENT_REAL)))
+            elif dc == "curated":
+                tbl_style.append(("TEXTCOLOR", (6, i), (6, i), _to_rl(_ACCENT_HEUR)))
         tbl.setStyle(TableStyle(tbl_style))
         story.append(tbl)
         story.append(Spacer(1, 0.3 * cm))
@@ -231,41 +247,45 @@ def generate_city_report(
     # ── Provenance Section ────────────────────────────────────────────────────
     story.append(Paragraph("Data Provenance", h2))
     story.append(Paragraph(
-        "Every price figure in this report carries a data class. 🟢 Real data is sourced "
-        "from government-published circle rates (ASR / guidance values) under GODL-India. "
-        "🟠 Heuristic data is derived from LandAI's transparent distance-decay formula; "
-        "formula parameters are documented in the model card at /api/ml/model-info.",
+        "Every price figure in this report carries an honest data class. "
+        "🟢 <b>Real</b> = a verified government guidance value (backed by a committed "
+        "source artifact). 🟡 <b>Govt guidance (unverified)</b> = a value believed to "
+        "come from a government circle-rate gazette (ASR / guidance value, GODL-India) "
+        "but whose transcription has not yet been machine-verified against the source "
+        "document — treated as curated, not real. 🟠 <b>Heuristic</b> = LandAI's "
+        "transparent distance-decay formula (parameters at /api/ml/model-info). "
+        "We never present unverified data as Real.",
         body
     ))
     story.append(Spacer(1, 0.2 * cm))
 
-    prov_data = [["Source", "License", "Data Class", "Coverage"]]
+    prov_data = [["Source", "License", "Data Class", "Verification"]]
     prov_data.append([
         "Maharashtra IGR — ASR 2023-24",
         "GODL-India",
-        "🟢 Real",
-        "MH cities",
+        "🟡 Curated",
+        "unverified transcription",
     ])
     prov_data.append([
         "Karnataka Kaveri — Guidance Value 2023-24",
         "GODL-India",
-        "🟢 Real",
-        "KA cities",
+        "🟡 Curated",
+        "unverified transcription",
     ])
     prov_data.append([
         "Telangana IGRS — Dharani 2023-24",
         "GODL-India",
-        "🟢 Real",
-        "TS cities",
+        "🟡 Curated",
+        "unverified transcription",
     ])
     prov_data.append([
         "LandAI distance-decay formula",
         "Heuristic (formula documented)",
         "🟠 Heuristic",
-        "All other cities",
+        "transparent formula",
     ])
 
-    prov_tbl = Table(prov_data, colWidths=[6*cm, 3.5*cm, 3*cm, 3*cm])
+    prov_tbl = Table(prov_data, colWidths=[5.5*cm, 3*cm, 3*cm, 4*cm])
     prov_tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), brand_green),
         ("TEXTCOLOR",  (0, 0), (-1, 0), colors.white),

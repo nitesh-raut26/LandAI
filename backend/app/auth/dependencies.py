@@ -51,6 +51,30 @@ def require_role(*roles: str):
     return _dep
 
 
+PRO_TIERS = frozenset({"pro", "enterprise"})
+
+
+def require_pro(user: User = Depends(get_current_user)) -> User:
+    """Gate a route behind a paid (Pro/Enterprise) subscription. Admins always pass.
+
+    Tier is read fresh from the DB via ``get_current_user`` (not the token claim),
+    so an upgrade takes effect immediately without re-login. Returns a structured
+    403 with an upgrade CTA for free-tier users — the monetization gate.
+    """
+    if user.role != "admin" and user.subscription_tier not in PRO_TIERS:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "pro_required",
+                "message": "This feature requires a Pro or Enterprise subscription.",
+                "upgrade_url": "/api/billing/checkout",
+                "current_tier": user.subscription_tier,
+                "required_tier": "pro",
+            },
+        )
+    return user
+
+
 def _endpoint_scope(path: str) -> str | None:
     """Scope = the path segment after /v1 (e.g. /api/v1/city/pune → 'city')."""
     parts = [p for p in path.split("/") if p]

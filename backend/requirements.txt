@@ -34,5 +34,11 @@ redis==8.0.0                       # OPTIONAL: distributed auth/rate-limit state
 # ── PDF report generation (pure Python, no system libs required) ──
 reportlab==4.2.5
 
+# ── Live circle-rate scraping (OPTIONAL: headless browser for JS-gated portals) ──
+# playwright==1.48.0   # then: python -m playwright install chromium
+# Used by app/ingestion/scrapers/circle_rates/maharashtra_live.py to fetch genuinely
+# live Maharashtra e-ASR circle rates. Optional — the system degrades to verified
+# artifacts / curated seed when absent. Run scripts/scrape_mh_easr.py to populate.
+
 # ── Tests ──
 pytest==9.0.3

@@ -17,54 +17,31 @@ Access control
 """
 from __future__ import annotations
 
-import mimetypes
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
 
+from ..auth import audit
+from ..auth.dependencies import get_current_user, require_pro
+from ..auth.models import User
 from ..data.cities_data import get_city
+from ..db import get_db
 from ..reports.jobs import REPORT_JOBS
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
-# ── Tier gate helper (reuses the existing auth infrastructure) ─────────────
-_PRO_TIERS = {"pro", "enterprise"}
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for")
+    return xff.split(",")[0].strip() if xff else (request.client.host if request.client else "unknown")
 
 
-def _require_pro(user_id: int = 0, subscription_tier: str = "developer") -> None:
-    """Fail with 403 if the user is not on a Pro or Enterprise tier.
-
-    In production this is wired to the auth dependency. For the open API path
-    (no auth header) we treat the caller as Developer tier.
-    """
-    if subscription_tier not in _PRO_TIERS:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "error": "pro_required",
-                "message": (
-                    "PDF report export is a Pro feature. "
-                    "Upgrade your subscription at /api/billing/checkout "
-                    "to access full provenance-stamped city reports."
-                ),
-                "upgrade_url": "/api/billing/checkout",
-                "current_tier": subscription_tier,
-                "required_tier": "pro",
-            },
-        )
-
-
-def _get_optional_tier() -> str:
-    """Return the subscription tier from auth context if available, else 'developer'."""
-    # NOTE: In a real auth flow, inject `current_user` from the auth dependency.
-    # Left as 'pro' for now so the endpoint is reachable during development.
-    # Set REPORT_REQUIRE_AUTH=1 to enforce real auth gate.
-    import os
-    if os.getenv("REPORT_REQUIRE_AUTH", "0") == "1":
-        return "developer"   # Force pro check in strict mode — override in tests
-    return "pro"
+def _owns(job: dict, user: User) -> bool:
+    """Tenant isolation — the requester must own the job (admins can read any)."""
+    return job.get("user_id") == user.id or user.role == "admin"
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -73,25 +50,27 @@ def _get_optional_tier() -> str:
 async def create_report(
     city_id: str,
     background_tasks: BackgroundTasks,
+    request: Request,
+    user: User = Depends(require_pro),
+    db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     """Queue a PDF report generation job for a city.
 
     Returns immediately with a ``job_id``. Poll ``GET /api/reports/jobs/{job_id}``
     for status. Download when ``status == 'ready'``.
 
-    Requires Pro or Enterprise subscription (403 otherwise).
+    Requires a Pro or Enterprise subscription (real auth gate — 401 if unauthenticated,
+    403 with an upgrade CTA for free tier). Every creation is audit-logged.
     """
-    tier = _get_optional_tier()
-    _require_pro(subscription_tier=tier)
-
     city = get_city(city_id)
     if not city:
         raise HTTPException(status_code=404, detail=f"City '{city_id}' not found")
 
-    job_id = REPORT_JOBS.create(city_id=city_id, user_id=0)
-
-    # Fire-and-forget in background
+    job_id = REPORT_JOBS.create(city_id=city_id, user_id=user.id)
     background_tasks.add_task(REPORT_JOBS.run_async, job_id, city_id)
+
+    audit.log_event(db, "report_created", user_id=user.id, ip=_client_ip(request),
+                    target_type="report", target_id=job_id, meta={"city_id": city_id})
 
     return {
         "job_id": job_id,
@@ -107,14 +86,15 @@ async def create_report(
 
 
 @router.get("/jobs/{job_id}")
-async def job_status(job_id: str) -> dict[str, Any]:
-    """Poll a report job's status.
-
-    Returns ``status`` ∈ ``{queued, running, ready, failed}``.
-    When ``ready``, a ``download_url`` is included.
-    """
+async def job_status(
+    job_id: str,
+    user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Poll a report job's status. Requires auth; only the owner (or an admin) may
+    read the job. Returns ``status`` ∈ ``{queued, running, ready, failed}``."""
     job = REPORT_JOBS.get(job_id)
-    if not job:
+    if not job or not _owns(job, user):
+        # Don't leak existence of jobs owned by others.
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
 
     resp = {
@@ -134,17 +114,16 @@ async def job_status(job_id: str) -> dict[str, Any]:
 
 
 @router.get("/download/{job_id}")
-async def download_report(job_id: str) -> FileResponse:
-    """Stream the generated PDF.
+async def download_report(
+    job_id: str,
+    user: User = Depends(require_pro),
+) -> FileResponse:
+    """Stream the generated PDF (Pro/Enterprise + owner only).
 
     Returns the PDF bytes with ``Content-Disposition: attachment``.
-    Requires Pro or Enterprise subscription.
     """
-    tier = _get_optional_tier()
-    _require_pro(subscription_tier=tier)
-
     job = REPORT_JOBS.get(job_id)
-    if not job:
+    if not job or not _owns(job, user):
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
     if job["status"] != "ready":
         raise HTTPException(
@@ -153,12 +132,11 @@ async def download_report(job_id: str) -> FileResponse:
                     "message": "Report is not ready yet. Check status at /api/reports/jobs/{job_id}."},
         )
 
-    file_path = Path(job["file_path"])
-    if not file_path.exists():
+    file_path = Path(job["file_path"]) if job.get("file_path") else None
+    if not file_path or not file_path.exists():
         raise HTTPException(status_code=404, detail="Report file not found (may have expired)")
 
-    city_id = job["city_id"]
-    filename = f"LandAI_{city_id}_report.pdf"
+    filename = f"LandAI_{job['city_id']}_report.pdf"
     return FileResponse(
         path=str(file_path),
         media_type="application/pdf",

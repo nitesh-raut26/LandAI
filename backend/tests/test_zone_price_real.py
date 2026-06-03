@@ -9,7 +9,10 @@ from app.store_circle_rates import PriceObservationStore
 from app.geo.spatial import zone_price_index_table, _real_price_for_zone
 
 
-def _make_obs(city_id="pune", direction="NW", dist_km=8.0, price=1000.0) -> PriceObservation:
+def _make_obs(city_id="pune", direction="NW", dist_km=8.0, price=1000.0,
+              verified=False) -> PriceObservation:
+    # Honest default: unverified transcription → data_class derives to "curated".
+    # Pass verified=True to simulate a source-verified observation → "real".
     return PriceObservation(
         city_id=city_id,
         city_name="Pune",
@@ -24,7 +27,7 @@ def _make_obs(city_id="pune", direction="NW", dist_km=8.0, price=1000.0) -> Pric
         source_url="https://igrmaharashtra.gov.in",
         license="GODL-India",
         confidence=0.78,
-        data_class="real",
+        verification_status="source_verified" if verified else "unverified_transcription",
     )
 
 
@@ -80,7 +83,7 @@ class TestRealPriceForZone:
         obs = _make_obs("pune_test_zone", "NW", 8.0, 1050.0)
         PRICE_STORE.put(obs)
 
-    def test_real_price_found_for_matching_zone(self):
+    def test_circle_rate_price_found_for_matching_zone(self):
         result = _real_price_for_zone(
             city_id="pune_test_zone",
             direction="NW",
@@ -89,10 +92,24 @@ class TestRealPriceForZone:
             horizon_years=5,
         )
         assert result is not None
-        assert result["data_class"] == "real"
+        # Honesty gate: unverified govt transcription is curated, not real.
+        assert result["data_class"] == "curated"
+        assert result["provenance"]["verification_status"] == "unverified_transcription"
         assert result["current_price_inr_per_sqft"] == 1050
         assert "provenance" in result
         assert result["provenance"]["license"] == "GODL-India"
+
+    def test_verified_observation_yields_real_zone(self):
+        from app.store_circle_rates import PRICE_STORE
+        PRICE_STORE.clear_city("pune_verified_zone")
+        PRICE_STORE.put(_make_obs("pune_verified_zone", "NW", 8.0, 1050.0, verified=True))
+        result = _real_price_for_zone(
+            city_id="pune_verified_zone", direction="NW", mid_dist_km=8.0,
+            expected_rise_pct=40.0, horizon_years=5,
+        )
+        assert result is not None
+        assert result["data_class"] == "real"
+        assert result["provenance"]["verification_status"] == "source_verified"
 
     def test_no_match_returns_none(self):
         result = _real_price_for_zone(
@@ -132,7 +149,7 @@ class TestZonePriceIndexTable:
         assert "zones" in result
         for zone in result["zones"]:
             assert "data_class" in zone
-            assert zone["data_class"] in ("real", "heuristic")
+            assert zone["data_class"] in ("real", "curated", "heuristic")
 
     def test_zones_have_coverage_block(self):
         from app.data.cities_data import get_city

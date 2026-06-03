@@ -48,7 +48,15 @@ class TestGlobalCoverage:
             assert "source_key" in src
             assert "license" in src
             assert "data_class" in src
-            assert src["data_class"] == "real"
+            assert "verification_status" in src
+            # The gate invariant: data_class is "real" IFF the source is verified
+            # (a committed artifact / live fetch); otherwise it is honest "curated".
+            if src["verification_status"] == "source_verified":
+                assert src["data_class"] == "real"
+                assert len(src.get("artifact_sha256", "")) == 64  # auditable
+            else:
+                assert src["data_class"] == "curated"
+                assert src["verification_status"] == "unverified_transcription"
 
 
 class TestCityCoverage:

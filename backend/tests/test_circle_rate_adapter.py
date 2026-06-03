@@ -13,6 +13,15 @@ from app.ingestion.scrapers.circle_rates.telangana_igrs import TelanganaIGRSAdap
 from app.ingestion.compliance import require_allowed, ComplianceError
 
 
+@pytest.fixture(autouse=True)
+def _isolate_artifacts(tmp_path, monkeypatch):
+    """These unit tests exercise the curated SEED + gate logic deterministically,
+    independent of any committed live-scraped artifact (the real/verified path is
+    covered by test_artifact_loader)."""
+    from app.ingestion.scrapers.circle_rates import artifact_loader as AL
+    monkeypatch.setattr(AL, "_SOURCES_DIR", tmp_path)
+
+
 # ── Compliance gate ──────────────────────────────────────────────────────────
 
 class TestComplianceGate:
@@ -72,7 +81,9 @@ class TestMaharashtraASRAdapter:
         assert first.source != ""
         assert first.source_url is not None
         assert first.license == "GODL-India"
-        assert first.data_class == "real"
+        # Honesty gate: hand-transcribed govt data is curated, NOT real, until verified.
+        assert first.verification_status == "unverified_transcription"
+        assert first.data_class == "curated"
         assert 0.0 < first.confidence <= 1.0
 
     def test_prices_in_valid_range(self):
@@ -97,7 +108,8 @@ class TestMaharashtraASRAdapter:
         d = obs[0].as_dict()
         assert "value_inr_per_sqft" in d
         assert "data_class" in d
-        assert d["data_class"] == "real"
+        assert d["data_class"] == "curated"
+        assert d["verification_status"] == "unverified_transcription"
         assert "effective_date" in d
 
 
@@ -115,7 +127,7 @@ class TestKarnatakaKaveriAdapter:
         obs = self.adapter.get_observations("bengaluru", "Bengaluru", "Karnataka")
         for o in obs:
             assert o.license == "GODL-India"
-            assert o.data_class == "real"
+            assert o.data_class == "curated"  # unverified transcription, not "real"
 
     def test_mysore_covered(self):
         obs = self.adapter.get_observations("mysore", "Mysore", "Karnataka")
@@ -140,8 +152,40 @@ class TestTelanganaIGRSAdapter:
         obs = self.adapter.get_observations("warangal", "Warangal", "Telangana")
         assert len(obs) >= 3
 
-    def test_all_observations_real_data_class(self):
+    def test_all_observations_curated_until_verified(self):
         obs = self.adapter.get_observations("hyderabad", "Hyderabad", "Telangana")
         for o in obs:
-            assert o.data_class == "real"
+            assert o.data_class == "curated"
+            assert o.verification_status == "unverified_transcription"
             assert o.basis == "circle_rate"
+
+
+# ── Verification gate (honesty contract) ──────────────────────────────────────
+
+class TestVerificationGate:
+    """The strict gate: data_class is DERIVED from verification_status, so a "real"
+    badge can never be set on unverified data — enforced at construction time."""
+
+    def test_resolve_data_class_mapping(self):
+        from app.ingestion.scrapers.circle_rates.base_circle import resolve_data_class
+        assert resolve_data_class("unverified_transcription") == "curated"
+        assert resolve_data_class("source_verified") == "real"
+        assert resolve_data_class("live_fetched") == "real"
+        assert resolve_data_class("anything_else") == "curated"
+
+    def test_unverified_construction_is_curated(self):
+        o = PriceObservation(city_id="x", city_name="X", state="S",
+                             locality_name="L", value_inr_per_sqft=500.0)
+        assert o.data_class == "curated"
+
+    def test_passing_real_data_class_is_overridden_when_unverified(self):
+        # Even if a caller tries to assert "real", post_init derives it from the
+        # (unverified) verification_status — the gate cannot be bypassed.
+        o = PriceObservation(city_id="x", city_name="X", state="S", locality_name="L",
+                             value_inr_per_sqft=500.0, data_class="real")
+        assert o.data_class == "curated"
+
+    def test_verified_status_yields_real(self):
+        o = PriceObservation(city_id="x", city_name="X", state="S", locality_name="L",
+                             value_inr_per_sqft=500.0, verification_status="source_verified")
+        assert o.data_class == "real"

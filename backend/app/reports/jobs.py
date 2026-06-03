@@ -93,7 +93,7 @@ class ReportJobStore:
         """Blocking PDF generation — runs in a thread pool worker."""
         from ..data.cities_data import get_city
         from ..geo.spatial import zone_price_index_table
-        from ..services.scoring import score_city
+        from ..services.scoring import compute_score
         from .renderer import generate_city_report
 
         city = get_city(city_id)
@@ -103,7 +103,7 @@ class ReportJobStore:
 
         try:
             zone_table = zone_price_index_table(city)
-            score = score_city(city)
+            score = compute_score(city)
             pdf_bytes = generate_city_report(city, zone_table, score)
         except Exception as exc:
             self._set_failed(job_id, f"Render error: {exc}")

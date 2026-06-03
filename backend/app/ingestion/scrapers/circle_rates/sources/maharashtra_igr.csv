@@ -1,0 +1,12 @@
+city_id,city_name,locality_name,value_inr_per_sqft,direction_hint,approx_distance_from_core_km,effective_date
+pune,Pune,कोथरुड,3753.3,W,5.0,2024-04-01
+pune,Pune,वारजे,2105.2,W,7.0,2024-04-01
+pune,Pune,बाणेर,3007.3,NW,8.0,2024-04-01
+pune,Pune,औंध,3720.8,NW,6.0,2024-04-01
+pune,Pune,बालेवाडी,2710.9,NW,9.0,2024-04-01
+pune,Pune,खराडी,2472.2,E,9.0,2024-04-01
+pune,Pune,धानोरी,2251.0,NE,8.0,2024-04-01
+pune,Pune,कात्रज,2007.6,S,8.0,2024-04-01
+pune,Pune,बिबवेवाडी,2602.2,S,6.0,2024-04-01
+pune,Pune,हडपसर,2350.4,SE,8.0,2024-04-01
+pune,Pune,वडगाव बुद्रुक,719.1,SW,6.0,2024-04-01

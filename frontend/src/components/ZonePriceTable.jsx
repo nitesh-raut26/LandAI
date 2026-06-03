@@ -6,7 +6,14 @@ const DATA_CLASS_CONFIG = {
     bg: "rgba(5, 150, 105, 0.12)",
     border: "rgba(5, 150, 105, 0.35)",
     text: "#059669",
-    label: "Government circle-rate data (GODL-India)",
+    label: "Verified government circle-rate data (GODL-India)",
+  },
+  curated: {
+    badge: "🟡 Govt (unverified)",
+    bg: "rgba(202, 138, 4, 0.12)",
+    border: "rgba(202, 138, 4, 0.35)",
+    text: "#ca8a04",
+    label: "Government guidance value — transcription not yet verified against the source gazette",
   },
   heuristic: {
     badge: "🟠 Heuristic",
@@ -16,6 +23,9 @@ const DATA_CLASS_CONFIG = {
     label: "Distance-decay formula (circle rate unavailable)",
   },
 };
+
+// Government-sourced classes carry provenance (a tooltip); heuristic does not.
+const GOVT_CLASSES = new Set(["real", "curated"]);
 
 function ProvenanceTooltip({ prov, onClose }) {
   if (!prov) return null;
@@ -32,6 +42,8 @@ function ProvenanceTooltip({ prov, onClose }) {
         <dd>{prov.effective_date || "—"}</dd>
         <dt>Confidence</dt>
         <dd>{prov.confidence ? `${(prov.confidence * 100).toFixed(0)}%` : "—"}</dd>
+        <dt>Verification</dt>
+        <dd>{(prov.verification_status || "—").replace(/_/g, " ")}</dd>
         <dt>Basis</dt>
         <dd>{prov.basis || "—"}</dd>
         <dt>Localities matched</dt>
@@ -85,12 +97,12 @@ function ZoneRow({ zone, corePrice, cheapestId, hottestId }) {
         <button
           className="zone-dc-badge"
           style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, color: cfg.text }}
-          onClick={() => zone.data_class === "real" && setShowProv(!showProv)}
+          onClick={() => GOVT_CLASSES.has(zone.data_class) && setShowProv(!showProv)}
           title={cfg.label}
           aria-pressed={showProv}
         >
           {cfg.badge}
-          {zone.data_class === "real" && <span className="zone-dc-info">ⓘ</span>}
+          {GOVT_CLASSES.has(zone.data_class) && <span className="zone-dc-info">ⓘ</span>}
         </button>
         {showProv && zone.provenance && (
           <ProvenanceTooltip prov={zone.provenance} onClose={() => setShowProv(false)} />
@@ -127,8 +139,12 @@ export default function ZonePriceTable({ data, loading, error }) {
 
   const { zones, cheapest_zone_id, highest_appreciation_zone_id, coverage, core_price_inr_per_sqft } = data;
   const realZones    = coverage?.real_zones ?? 0;
+  const curatedZones = coverage?.curated_zones ?? 0;
+  const govtZones    = coverage?.govt_backed_zones ?? (realZones + curatedZones);
   const totalZones   = coverage?.total_zones ?? zones.length;
-  const overallClass = realZones > 0 ? "real" : "heuristic";
+  // Overall class is honest: real only if verified data exists; else curated if any
+  // government source backs a zone; else heuristic.
+  const overallClass = realZones > 0 ? "real" : curatedZones > 0 ? "curated" : "heuristic";
   const overallCfg   = DATA_CLASS_CONFIG[overallClass];
 
   return (
@@ -142,14 +158,15 @@ export default function ZonePriceTable({ data, loading, error }) {
             style={{ background: overallCfg.bg, border: `1px solid ${overallCfg.border}`, color: overallCfg.text }}
           >
             {overallCfg.badge}
-            {realZones > 0 && ` · ${realZones}/${totalZones} zones`}
+            {govtZones > 0 && ` · ${govtZones}/${totalZones} zones`}
           </span>
         </div>
         <p className="zone-table-subtitle">
           Core: ₹{Number(core_price_inr_per_sqft).toLocaleString("en-IN")}/sqft ·{" "}
-          {realZones > 0
-            ? `${realZones} of ${totalZones} zones backed by govt circle-rate data`
-            : "All zones derived from distance-decay model — real data unavailable for this city"}
+          {govtZones > 0
+            ? `${govtZones} of ${totalZones} zones backed by a govt circle-rate source` +
+              (realZones > 0 ? ` (${realZones} verified)` : " (unverified transcription)")
+            : "All zones derived from distance-decay model — govt circle-rate data unavailable for this city"}
         </p>
       </div>
 
@@ -182,7 +199,9 @@ export default function ZonePriceTable({ data, loading, error }) {
 
       {/* ── Honesty footnote ── */}
       <p className="zone-table-footnote">
-        🟢 <strong>Real</strong> = government guidance value (GODL-India; click badge for details) ·{" "}
+        🟢 <strong>Real</strong> = verified government guidance value ·{" "}
+        🟡 <strong>Govt (unverified)</strong> = government circle rate (GODL-India), transcription
+        pending source-artifact verification — click the badge for provenance ·{" "}
         🟠 <strong>Heuristic</strong> = distance-decay formula off city core.
         All prices in ₹/sqft. Projected over zone's investment horizon.
       </p>

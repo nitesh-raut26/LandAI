@@ -1,0 +1,11 @@
+city_id,city_name,locality_name,value_inr_per_sqft,direction_hint,approx_distance_from_core_km,effective_date
+ranchi,Ranchi,Lalpur,7500.0,N,4.0,2024-04-01
+ranchi,Ranchi,Kanke Road,6800.0,NW,4.0,2024-04-01
+ranchi,Ranchi,Bariatu,5200.0,NE,4.0,2024-04-01
+ranchi,Ranchi,Morabadi,5500.0,N,4.0,2024-04-01
+ranchi,Ranchi,Dhurwa,4200.0,S,4.0,2024-04-01
+jamshedpur,Jamshedpur,Bistupur,8500.0,W,4.0,2024-04-01
+jamshedpur,Jamshedpur,Sakchi,7800.0,N,4.0,2024-04-01
+jamshedpur,Jamshedpur,Kadma,5500.0,W,4.0,2024-04-01
+jamshedpur,Jamshedpur,Sonari,6000.0,NW,4.0,2024-04-01
+jamshedpur,Jamshedpur,Telco,4800.0,E,4.0,2024-04-01

@@ -1,0 +1,19 @@
+city_id,city_name,locality_name,value_inr_per_sqft,direction_hint,approx_distance_from_core_km,effective_date
+ahmedabad,Ahmedabad,CG Road,12000.0,W,5.0,2024-04-01
+ahmedabad,Ahmedabad,Satellite,8500.0,W,5.0,2024-04-01
+ahmedabad,Ahmedabad,SG Highway,9500.0,W,5.0,2024-04-01
+ahmedabad,Ahmedabad,Bopal,5500.0,W,5.0,2024-04-01
+gandhinagar,Gandhinagar,Sector 11,6000.0,E,5.0,2024-04-01
+gandhinagar,Gandhinagar,Sargasan,5500.0,SW,5.0,2024-04-01
+gandhinagar,Gandhinagar,GIFT City,8500.0,NE,5.0,2024-04-01
+surat,Surat,Adajan,6500.0,W,5.0,2024-04-01
+surat,Surat,Vesu,8000.0,S,5.0,2024-04-01
+surat,Surat,Varachha,7500.0,E,5.0,2024-04-01
+vadodara,Vadodara,Alkapuri,7000.0,W,5.0,2024-04-01
+vadodara,Vadodara,Gotri,5200.0,NW,5.0,2024-04-01
+rajkot,Rajkot,Yagnik Road,6500.0,W,5.0,2024-04-01
+rajkot,Rajkot,Kalawad Road,5800.0,SW,5.0,2024-04-01
+bhavnagar,Bhavnagar,Kalanala,3200.0,N,5.0,2024-04-01
+bhavnagar,Bhavnagar,Sidsar Road,2500.0,S,5.0,2024-04-01
+jamnagar,Jamnagar,Park Colony,3500.0,W,5.0,2024-04-01
+jamnagar,Jamnagar,Samarpan,2800.0,NW,5.0,2024-04-01

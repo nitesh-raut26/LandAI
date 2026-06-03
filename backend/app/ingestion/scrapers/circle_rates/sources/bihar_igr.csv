@@ -1,0 +1,13 @@
+city_id,city_name,locality_name,value_inr_per_sqft,direction_hint,approx_distance_from_core_km,effective_date
+patna,Patna,Kidwaipuri,15000.0,W,5.0,2024-04-01
+patna,Patna,Boring Road,12000.0,NW,5.0,2024-04-01
+patna,Patna,Bailey Road,10500.0,W,5.0,2024-04-01
+patna,Patna,Kankarbagh,8000.0,S,5.0,2024-04-01
+patna,Patna,Danapur,5500.0,W,5.0,2024-04-01
+patna,Patna,Phulwari Sharif,4800.0,SW,5.0,2024-04-01
+gaya,Gaya,AP Colony,4500.0,W,5.0,2024-04-01
+gaya,Gaya,GB Road,6000.0,N,5.0,2024-04-01
+gaya,Gaya,Bodhgaya Road,3500.0,S,5.0,2024-04-01
+muzaffarpur,Muzaffarpur,Mithanpura,5000.0,SE,5.0,2024-04-01
+muzaffarpur,Muzaffarpur,Ramna,4000.0,S,5.0,2024-04-01
+muzaffarpur,Muzaffarpur,Motijheel,6500.0,W,5.0,2024-04-01

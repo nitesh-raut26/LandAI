@@ -1,0 +1,10 @@
+{
+  "source": "MP Inspector General of Registration \u2014 Collector Rates live scrape (FY 2026)",
+  "source_url": "https://mpigr.gov.in",
+  "source_document": "Collector Rates",
+  "license": "GODL-India",
+  "state": "Madhya Pradesh",
+  "retrieved_at": "2026-06-03",
+  "method": "live scrape/extraction of official MP Collector Rates",
+  "official": true
+}

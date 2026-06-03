@@ -1,0 +1,10 @@
+{
+  "source": "Gujarat Revenue Department \u2014 Jantri live scrape (FY 2026)",
+  "source_url": "https://revenue.gujarat.gov.in",
+  "source_document": "Jantri Rates",
+  "license": "GODL-India",
+  "state": "Gujarat",
+  "retrieved_at": "2026-06-03",
+  "method": "live scrape/extraction of official Gujarat Jantri",
+  "official": true
+}

@@ -1,0 +1,10 @@
+{
+  "source": "Chhattisgarh Registration & Stamps Department \u2014 Market Value live scrape (FY 2026)",
+  "source_url": "https://cg.nic.in",
+  "source_document": "Market Value",
+  "license": "GODL-India",
+  "state": "Chhattisgarh",
+  "retrieved_at": "2026-06-03",
+  "method": "live scrape/extraction of official Chhattisgarh Market Values",
+  "official": true
+}

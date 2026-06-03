@@ -1,0 +1,16 @@
+city_id,city_name,locality_name,value_inr_per_sqft,direction_hint,approx_distance_from_core_km,effective_date
+delhi,Delhi,Vasant Vihar (Category A),71900.0,SW,8.0,2024-04-01
+delhi,Delhi,Golf Links (Category A),71900.0,S,8.0,2024-04-01
+delhi,Delhi,Jor Bagh (Category A),71900.0,S,8.0,2024-04-01
+delhi,Delhi,Defence Colony (Category B),22850.0,S,8.0,2024-04-01
+delhi,Delhi,Greater Kailash (Category B),22850.0,S,8.0,2024-04-01
+delhi,Delhi,Lajpat Nagar (Category C),14860.0,S,8.0,2024-04-01
+delhi,Delhi,Panchsheel Park (Category C),14860.0,S,8.0,2024-04-01
+delhi,Delhi,Dwarka (Category D),11890.0,SW,8.0,2024-04-01
+delhi,Delhi,Rohini (Category D),11890.0,NW,8.0,2024-04-01
+delhi,Delhi,Karol Bagh (Category D),11890.0,W,8.0,2024-04-01
+delhi,Delhi,Chandni Chowk (Category E),6510.0,N,8.0,2024-04-01
+delhi,Delhi,Dilshad Garden (Category E),6510.0,NE,8.0,2024-04-01
+delhi,Delhi,Kalyanpuri (Category F),5260.0,E,8.0,2024-04-01
+delhi,Delhi,Ambedkar Nagar (Category G),4290.0,S,8.0,2024-04-01
+delhi,Delhi,Sultanpur Majra (Category H),2160.0,NW,8.0,2024-04-01

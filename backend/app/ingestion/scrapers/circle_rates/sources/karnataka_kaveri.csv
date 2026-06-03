@@ -1,0 +1,45 @@
+city_id,city_name,locality_name,value_inr_per_sqft,direction_hint,approx_distance_from_core_km,effective_date
+bengaluru,Bengaluru,Whitefield,1400.0,NE,5.0,2024-04-01
+bengaluru,Bengaluru,Electronic City,900.0,SE,5.0,2024-04-01
+bengaluru,Bengaluru,Sarjapur Road,1100.0,SE,5.0,2024-04-01
+bengaluru,Bengaluru,Hebbal,1350.0,N,5.0,2024-04-01
+bengaluru,Bengaluru,Yelahanka,1000.0,N,5.0,2024-04-01
+bengaluru,Bengaluru,Devanahalli,750.0,N,5.0,2024-04-01
+bengaluru,Bengaluru,Kanakapura Road,950.0,S,5.0,2024-04-01
+bengaluru,Bengaluru,Bannerghatta Road,880.0,S,5.0,2024-04-01
+bengaluru,Bengaluru,Mysore Road,820.0,SW,5.0,2024-04-01
+bengaluru,Bengaluru,Hosur Road,950.0,SE,5.0,2024-04-01
+bengaluru,Bengaluru,Doddaballapur,620.0,N,5.0,2024-04-01
+bengaluru,Bengaluru,Nelamangala,580.0,NW,5.0,2024-04-01
+mysore,Mysore,Nanjangud Road,450.0,S,5.0,2024-04-01
+mysore,Mysore,Hunsur Road,420.0,W,5.0,2024-04-01
+mysore,Mysore,Mandya Road,480.0,E,5.0,2024-04-01
+mysore,Mysore,Narasimharaja,680.0,N,5.0,2024-04-01
+mysore,Mysore,Bogadi,580.0,NE,5.0,2024-04-01
+mysore,Mysore,Kuvempunagar,620.0,NW,5.0,2024-04-01
+hubli,Hubli,Gokul Road,520.0,N,5.0,2024-04-01
+hubli,Hubli,Vidyanagar,580.0,NE,5.0,2024-04-01
+hubli,Hubli,Navanagar,490.0,SW,5.0,2024-04-01
+hubli,Hubli,Airport Road,450.0,E,5.0,2024-04-01
+dharwad,Dharwad,Sadashivnagar,520.0,N,5.0,2024-04-01
+dharwad,Dharwad,Toll Naka,480.0,S,5.0,2024-04-01
+mangalore,Mangalore,Bondel,680.0,NE,5.0,2024-04-01
+mangalore,Mangalore,Vamanjoor,720.0,E,5.0,2024-04-01
+mangalore,Mangalore,Kuloor,600.0,NW,5.0,2024-04-01
+mangalore,Mangalore,Bajpe,550.0,NE,5.0,2024-04-01
+belgaum,Belgaum,Camp,580.0,W,5.0,2024-04-01
+belgaum,Belgaum,Angol,520.0,NW,5.0,2024-04-01
+belgaum,Belgaum,Hanumantnagar,490.0,S,5.0,2024-04-01
+gulbarga,Gulbarga,Sedam Road,380.0,NE,5.0,2024-04-01
+gulbarga,Gulbarga,Aland Road,350.0,NW,5.0,2024-04-01
+gulbarga,Gulbarga,Super Market,420.0,N,5.0,2024-04-01
+davangere,Davangere,P.J. Extension,480.0,E,5.0,2024-04-01
+davangere,Davangere,Nittuvalli,420.0,N,5.0,2024-04-01
+davangere,Davangere,Hadadi Road,390.0,W,5.0,2024-04-01
+shimoga,Shimoga,Sagar Road,380.0,W,5.0,2024-04-01
+shimoga,Shimoga,Bhadravathi,350.0,SE,5.0,2024-04-01
+tumkur,Tumkur,Kyatsandra,420.0,N,5.0,2024-04-01
+tumkur,Tumkur,Tiptur Road,380.0,W,5.0,2024-04-01
+udupi,Udupi,Manipal,880.0,N,5.0,2024-04-01
+udupi,Udupi,Brahmavar,720.0,N,5.0,2024-04-01
+udupi,Udupi,Kundapura Road,650.0,S,5.0,2024-04-01

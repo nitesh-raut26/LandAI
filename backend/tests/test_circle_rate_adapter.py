@@ -10,6 +10,18 @@ from app.ingestion.scrapers.circle_rates.base_circle import (
 from app.ingestion.scrapers.circle_rates.maharashtra_asr import MaharashtraASRAdapter
 from app.ingestion.scrapers.circle_rates.karnataka_kaveri import KarnatakaKaveriAdapter
 from app.ingestion.scrapers.circle_rates.telangana_igrs import TelanganaIGRSAdapter
+from app.ingestion.scrapers.circle_rates.bihar_igr import BiharIGRAdapter
+from app.ingestion.scrapers.circle_rates.jharkhand_revenue import JharkhandRevenueAdapter
+from app.ingestion.scrapers.circle_rates.west_bengal_igr import WestBengalIGRAdapter
+from app.ingestion.scrapers.circle_rates.delhi_revenue import DelhiRevenueAdapter
+from app.ingestion.scrapers.circle_rates.haryana_jamabandi import HaryanaJamabandiAdapter
+from app.ingestion.scrapers.circle_rates.up_igrs import UPIGRSAdapter
+from app.ingestion.scrapers.circle_rates import (
+    TamilNaduRegistrationAdapter, GujaratRegistrationAdapter, RajasthanRegistrationAdapter,
+    MadhyaPradeshRegistrationAdapter, KeralaRegistrationAdapter, UttarakhandRevenueAdapter,
+    GoaRegistrationAdapter, HimachalRevenueAdapter, PuducherryRegistrationAdapter,
+    OdishaRegistrationAdapter, AssamRevenueAdapter, ChhattisgarhRegistrationAdapter,
+)
 from app.ingestion.compliance import require_allowed, ComplianceError
 
 
@@ -158,6 +170,210 @@ class TestTelanganaIGRSAdapter:
             assert o.data_class == "curated"
             assert o.verification_status == "unverified_transcription"
             assert o.basis == "circle_rate"
+
+
+# ── Bihar adapter ─────────────────────────────────────────────────────────────
+
+class TestBiharIGRAdapter:
+    def setup_method(self):
+        self.adapter = BiharIGRAdapter()
+
+    def test_patna_returns_observations(self):
+        obs = self.adapter.get_observations("patna", "Patna", "Bihar")
+        assert len(obs) > 0
+
+    def test_all_observations_curated_until_verified(self):
+        obs = self.adapter.get_observations("patna", "Patna", "Bihar")
+        for o in obs:
+            assert o.data_class == "curated"
+            assert o.verification_status == "unverified_transcription"
+
+
+# ── Jharkhand adapter ─────────────────────────────────────────────────────────
+
+class TestJharkhandRevenueAdapter:
+    def setup_method(self):
+        self.adapter = JharkhandRevenueAdapter()
+
+    def test_ranchi_returns_observations(self):
+        obs = self.adapter.get_observations("ranchi", "Ranchi", "Jharkhand")
+        assert len(obs) > 0
+
+
+# ── West Bengal adapter ───────────────────────────────────────────────────────
+
+class TestWestBengalIGRAdapter:
+    def setup_method(self):
+        self.adapter = WestBengalIGRAdapter()
+
+    def test_kolkata_returns_observations(self):
+        obs = self.adapter.get_observations("kolkata", "Kolkata", "West Bengal")
+        assert len(obs) > 0
+
+
+# ── Delhi adapter ─────────────────────────────────────────────────────────────
+
+class TestDelhiRevenueAdapter:
+    def setup_method(self):
+        self.adapter = DelhiRevenueAdapter()
+
+    def test_delhi_returns_observations(self):
+        obs = self.adapter.get_observations("delhi", "Delhi", "Delhi")
+        assert len(obs) > 0
+
+
+# ── Haryana adapter ───────────────────────────────────────────────────────────
+
+class TestHaryanaJamabandiAdapter:
+    def setup_method(self):
+        self.adapter = HaryanaJamabandiAdapter()
+
+    def test_gurgaon_returns_observations(self):
+        obs = self.adapter.get_observations("gurgaon", "Gurugram", "Haryana")
+        assert len(obs) > 0
+
+
+# ── Uttar Pradesh adapter ─────────────────────────────────────────────────────
+
+class TestUPIGRSAdapter:
+    def setup_method(self):
+        self.adapter = UPIGRSAdapter()
+
+    def test_noida_returns_observations(self):
+        obs = self.adapter.get_observations("noida", "Noida", "Uttar Pradesh")
+        assert len(obs) > 0
+
+
+# ── Tamil Nadu adapter ────────────────────────────────────────────────────────
+
+class TestTamilNaduRegistrationAdapter:
+    def setup_method(self):
+        self.adapter = TamilNaduRegistrationAdapter()
+
+    def test_chennai_returns_observations(self):
+        obs = self.adapter.get_observations("chennai", "Chennai", "Tamil Nadu")
+        assert len(obs) > 0
+
+
+# ── Gujarat adapter ───────────────────────────────────────────────────────────
+
+class TestGujaratRegistrationAdapter:
+    def setup_method(self):
+        self.adapter = GujaratRegistrationAdapter()
+
+    def test_ahmedabad_returns_observations(self):
+        obs = self.adapter.get_observations("ahmedabad", "Ahmedabad", "Gujarat")
+        assert len(obs) > 0
+
+
+# ── Rajasthan adapter ─────────────────────────────────────────────────────────
+
+class TestRajasthanRegistrationAdapter:
+    def setup_method(self):
+        self.adapter = RajasthanRegistrationAdapter()
+
+    def test_jaipur_returns_observations(self):
+        obs = self.adapter.get_observations("jaipur", "Jaipur", "Rajasthan")
+        assert len(obs) > 0
+
+
+# ── Madhya Pradesh adapter ────────────────────────────────────────────────────
+
+class TestMadhyaPradeshRegistrationAdapter:
+    def setup_method(self):
+        self.adapter = MadhyaPradeshRegistrationAdapter()
+
+    def test_indore_returns_observations(self):
+        obs = self.adapter.get_observations("indore", "Indore", "Madhya Pradesh")
+        assert len(obs) > 0
+
+
+# ── Kerala adapter ────────────────────────────────────────────────────────────
+
+class TestKeralaRegistrationAdapter:
+    def setup_method(self):
+        self.adapter = KeralaRegistrationAdapter()
+
+    def test_kochi_returns_observations(self):
+        obs = self.adapter.get_observations("kochi", "Kochi", "Kerala")
+        assert len(obs) > 0
+
+
+# ── Uttarakhand adapter ───────────────────────────────────────────────────────
+
+class TestUttarakhandRevenueAdapter:
+    def setup_method(self):
+        self.adapter = UttarakhandRevenueAdapter()
+
+    def test_dehradun_returns_observations(self):
+        obs = self.adapter.get_observations("dehradun", "Dehradun", "Uttarakhand")
+        assert len(obs) > 0
+
+
+# ── Goa adapter ───────────────────────────────────────────────────────────────
+
+class TestGoaRegistrationAdapter:
+    def setup_method(self):
+        self.adapter = GoaRegistrationAdapter()
+
+    def test_panaji_returns_observations(self):
+        obs = self.adapter.get_observations("panaji", "Panaji", "Goa")
+        assert len(obs) > 0
+
+
+# ── Himachal adapter ──────────────────────────────────────────────────────────
+
+class TestHimachalRevenueAdapter:
+    def setup_method(self):
+        self.adapter = HimachalRevenueAdapter()
+
+    def test_shimla_returns_observations(self):
+        obs = self.adapter.get_observations("shimla", "Shimla", "Himachal Pradesh")
+        assert len(obs) > 0
+
+
+# ── Puducherry adapter ────────────────────────────────────────────────────────
+
+class TestPuducherryRegistrationAdapter:
+    def setup_method(self):
+        self.adapter = PuducherryRegistrationAdapter()
+
+    def test_puducherry_returns_observations(self):
+        obs = self.adapter.get_observations("puducherry", "Puducherry", "Puducherry")
+        assert len(obs) > 0
+
+
+# ── Odisha adapter ────────────────────────────────────────────────────────────
+
+class TestOdishaRegistrationAdapter:
+    def setup_method(self):
+        self.adapter = OdishaRegistrationAdapter()
+
+    def test_bhubaneswar_returns_observations(self):
+        obs = self.adapter.get_observations("bhubaneswar", "Bhubaneswar", "Odisha")
+        assert len(obs) > 0
+
+
+# ── Assam adapter ─────────────────────────────────────────────────────────────
+
+class TestAssamRevenueAdapter:
+    def setup_method(self):
+        self.adapter = AssamRevenueAdapter()
+
+    def test_guwahati_returns_observations(self):
+        obs = self.adapter.get_observations("guwahati", "Guwahati", "Assam")
+        assert len(obs) > 0
+
+
+# ── Chhattisgarh adapter ──────────────────────────────────────────────────────
+
+class TestChhattisgarhRegistrationAdapter:
+    def setup_method(self):
+        self.adapter = ChhattisgarhRegistrationAdapter()
+
+    def test_raipur_returns_observations(self):
+        obs = self.adapter.get_observations("raipur", "Raipur", "Chhattisgarh")
+        assert len(obs) > 0
 
 
 # ── Verification gate (honesty contract) ──────────────────────────────────────

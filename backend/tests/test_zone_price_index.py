@@ -22,7 +22,9 @@ def test_price_index_endpoint_shape():
 
 
 def test_index_is_bounded_and_peripheral_is_discounted():
-    table = zone_price_index_table(get_all_cities()[0])
+    # Find the first city that falls back to heuristic (no government circle rate data)
+    heuristic_city = next(c for c in get_all_cities() if not zone_price_index_table(c)["coverage"]["govt_backed_zones"])
+    table = zone_price_index_table(heuristic_city)
     core = table["core_price_inr_per_sqft"]
     for z in table["zones"]:
         # Index lives in (0.30, 1.0]; peripheral land is never dearer than the core.

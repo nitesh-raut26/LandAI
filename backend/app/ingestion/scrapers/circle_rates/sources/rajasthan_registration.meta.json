@@ -1,0 +1,10 @@
+{
+  "source": "Rajasthan Registration & Stamps Department \u2014 DLC live scrape (FY 2026)",
+  "source_url": "https://igrs.rajasthan.gov.in",
+  "source_document": "DLC Rates",
+  "license": "GODL-India",
+  "state": "Rajasthan",
+  "retrieved_at": "2026-06-03",
+  "method": "live scrape/extraction of official Rajasthan DLC Rates",
+  "official": true
+}

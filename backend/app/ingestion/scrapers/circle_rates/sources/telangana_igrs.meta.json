@@ -1,0 +1,10 @@
+{
+  "source": "Telangana IGRS \u2014 Dharani Guidance Values live scrape (FY 2026)",
+  "source_url": "https://registration.telangana.gov.in",
+  "source_document": "Guideline Value",
+  "license": "GODL-India",
+  "state": "Telangana",
+  "retrieved_at": "2026-06-03",
+  "method": "live scrape/extraction of official Telangana Dharani Guidance Values",
+  "official": true
+}

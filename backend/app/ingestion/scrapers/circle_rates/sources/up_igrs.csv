@@ -1,0 +1,20 @@
+city_id,city_name,locality_name,value_inr_per_sqft,direction_hint,approx_distance_from_core_km,effective_date
+noida,Noida,Sector 15,12000.0,NW,5.0,2024-04-01
+noida,Noida,Sector 44,10500.0,S,5.0,2024-04-01
+noida,Noida,Sector 62,7800.0,NE,5.0,2024-04-01
+noida,Noida,Sector 150,5500.0,SE,5.0,2024-04-01
+noida,Noida,Sector 4 Greater Noida West,4200.0,E,5.0,2024-04-01
+ghaziabad,Ghaziabad,Indirapuram,6500.0,SW,5.0,2024-04-01
+ghaziabad,Ghaziabad,Vasundhara,5800.0,W,5.0,2024-04-01
+ghaziabad,Ghaziabad,Raj Nagar Extension,3800.0,NE,5.0,2024-04-01
+ghaziabad,Ghaziabad,Kaushambi,7200.0,SW,5.0,2024-04-01
+lucknow,Lucknow,Hazratganj,10000.0,N,5.0,2024-04-01
+lucknow,Lucknow,Gomti Nagar,7500.0,E,5.0,2024-04-01
+lucknow,Lucknow,Aliganj,6200.0,NW,5.0,2024-04-01
+lucknow,Lucknow,Indira Nagar,5800.0,NE,5.0,2024-04-01
+lucknow,Lucknow,Vrindavan Yojna,4500.0,S,5.0,2024-04-01
+lucknow,Lucknow,Kanpur Road (LDA),4200.0,SW,5.0,2024-04-01
+kanpur,Kanpur,Civil Lines,9000.0,N,5.0,2024-04-01
+kanpur,Kanpur,Swaroop Nagar,10500.0,NW,5.0,2024-04-01
+kanpur,Kanpur,Kidwai Nagar,5500.0,S,5.0,2024-04-01
+kanpur,Kanpur,Kalyanpur,4200.0,NW,5.0,2024-04-01

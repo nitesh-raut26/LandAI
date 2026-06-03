@@ -1,0 +1,15 @@
+city_id,city_name,locality_name,value_inr_per_sqft,direction_hint,approx_distance_from_core_km,effective_date
+bhopal,Bhopal,Arera Colony,7500.0,S,5.0,2024-04-01
+bhopal,Bhopal,MP Nagar,8500.0,E,5.0,2024-04-01
+bhopal,Bhopal,Kolar Road,4800.0,SW,5.0,2024-04-01
+indore,Indore,Vijay Nagar,8500.0,N,5.0,2024-04-01
+indore,Indore,Super Corridor,5800.0,NW,5.0,2024-04-01
+indore,Indore,Saket,9000.0,E,5.0,2024-04-01
+jabalpur,Jabalpur,Civil Lines,4200.0,SE,5.0,2024-04-01
+jabalpur,Jabalpur,Vijay Nagar,3500.0,N,5.0,2024-04-01
+gwalior,Gwalior,City Centre,4000.0,S,5.0,2024-04-01
+gwalior,Gwalior,Morar,3200.0,E,5.0,2024-04-01
+ujjain,Ujjain,Freeganj,4500.0,E,5.0,2024-04-01
+ujjain,Ujjain,Nanakheda,3600.0,S,5.0,2024-04-01
+sagar,Sagar,Civil Lines,2100.0,E,5.0,2024-04-01
+sagar,Sagar,Makronia,1800.0,NE,5.0,2024-04-01

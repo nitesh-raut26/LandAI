@@ -27,6 +27,42 @@ _SOURCE_REGISTRY = [
      "https://kaverionline.karnataka.gov.in"),
     ("telangana_igrs", "Telangana IGRS — Dharani Guidance Values",
      "https://registration.telangana.gov.in/guidancevalue.htm"),
+    ("bihar_igr", "Bihar Registration Department — Minimum Value Register (MVR)",
+     "https://registration.bihar.gov.in"),
+    ("jharkhand_revenue", "Jharkhand Revenue Department — Circle Rates",
+     "https://regd.jharkhand.gov.in"),
+    ("west_bengal_igr", "West Bengal Directorate of Registration & Stamp Revenue",
+     "https://wbregistration.gov.in"),
+    ("delhi_revenue", "Delhi Revenue Department — Circle Rates",
+     "https://revenue.delhi.gov.in"),
+    ("haryana_jamabandi", "Haryana Jamabandi — Collector Rates",
+     "https://jamabandi.nic.in"),
+    ("up_igrs", "Uttar Pradesh Stamp and Registration Department — Circle Rates",
+     "https://igrsup.gov.in"),
+    ("tamil_nadu_registration", "Tamil Nadu Registration Department (Reginet) — Guideline Value",
+     "https://tnreginet.gov.in"),
+    ("gujarat_registration", "Gujarat Revenue Department — Jantri Rates",
+     "https://revenue.gujarat.gov.in"),
+    ("rajasthan_registration", "Rajasthan Registration & Stamps Department — DLC Rates",
+     "https://igrs.rajasthan.gov.in"),
+    ("madhya_pradesh_registration", "Madhya Pradesh Inspector General of Registration — Collector Rates",
+     "https://mpigr.gov.in"),
+    ("kerala_registration", "Kerala Registration Department — Fair Value of Land",
+     "https://kerala.gov.in"),
+    ("uttarakhand_revenue", "Uttarakhand Stamp and Registration Department — Circle Rates",
+     "https://registration.uk.gov.in"),
+    ("goa_registration", "Goa Registration Department — Circle Rates",
+     "https://goa.gov.in"),
+    ("himachal_revenue", "Himachal Pradesh Revenue Department — Circle Rates",
+     "https://himachal.nic.in"),
+    ("puducherry_registration", "Puducherry Registration Department — Guideline Value",
+     "https://puducherry.gov.in"),
+    ("odisha_registration", "Odisha Inspector General of Registration — Benchmark Valuation",
+     "https://odisha.gov.in"),
+    ("assam_revenue", "Assam Revenue & Disaster Management Department — Circle Rates",
+     "https://assam.gov.in"),
+    ("chhattisgarh_registration", "Chhattisgarh Registration & Stamps Department — Market Value",
+     "https://cg.nic.in"),
 ]
 
 
@@ -145,14 +181,99 @@ async def refresh_all() -> dict[str, Any]:
     }
 
 
+def _get_scraper_for_city(city_id: str):
+    from ..ingestion.scrapers.circle_rates import (
+        maharashtra_live, bihar_live, jharkhand_live, west_bengal_live, delhi_live, haryana_live, up_live,
+        tamil_nadu_live, gujarat_live, rajasthan_live, madhya_pradesh_live, kerala_live, uttarakhand_live,
+        goa_live, himachal_live, puducherry_live, odisha_live, assam_live, chhattisgarh_live,
+        karnataka_live, telangana_live
+    )
+    if city_id in maharashtra_live.CITY_PLANS:
+        return maharashtra_live.MaharashtraLiveASRScraper(), maharashtra_live.available()
+    elif city_id in bihar_live.CITY_PLANS:
+        return bihar_live.BiharLiveScraper(), bihar_live.available()
+    elif city_id in jharkhand_live.CITY_PLANS:
+        return jharkhand_live.JharkhandLiveScraper(), jharkhand_live.available()
+    elif city_id in west_bengal_live.CITY_PLANS:
+        return west_bengal_live.WestBengalLiveScraper(), west_bengal_live.available()
+    elif city_id in delhi_live.CITY_PLANS:
+        return delhi_live.DelhiLiveScraper(), delhi_live.available()
+    elif city_id in haryana_live.CITY_PLANS:
+        return haryana_live.HaryanaLiveScraper(), haryana_live.available()
+    elif city_id in up_live.CITY_PLANS:
+        return up_live.UPLiveScraper(), up_live.available()
+    elif city_id in tamil_nadu_live.CITY_PLANS:
+        return tamil_nadu_live.TamilNaduLiveScraper(), tamil_nadu_live.available()
+    elif city_id in gujarat_live.CITY_PLANS:
+        return gujarat_live.GujaratLiveScraper(), gujarat_live.available()
+    elif city_id in rajasthan_live.CITY_PLANS:
+        return rajasthan_live.RajasthanLiveScraper(), rajasthan_live.available()
+    elif city_id in madhya_pradesh_live.CITY_PLANS:
+        return madhya_pradesh_live.MadhyaPradeshLiveScraper(), madhya_pradesh_live.available()
+    elif city_id in kerala_live.CITY_PLANS:
+        return kerala_live.KeralaLiveScraper(), kerala_live.available()
+    elif city_id in uttarakhand_live.CITY_PLANS:
+        return uttarakhand_live.UttarakhandLiveScraper(), uttarakhand_live.available()
+    elif city_id in goa_live.CITY_PLANS:
+        return goa_live.GoaLiveScraper(), goa_live.available()
+    elif city_id in himachal_live.CITY_PLANS:
+        return himachal_live.HimachalLiveScraper(), himachal_live.available()
+    elif city_id in puducherry_live.CITY_PLANS:
+        return puducherry_live.PuducherryLiveScraper(), puducherry_live.available()
+    elif city_id in odisha_live.CITY_PLANS:
+        return odisha_live.OdishaLiveScraper(), odisha_live.available()
+    elif city_id in assam_live.CITY_PLANS:
+        return assam_live.AssamLiveScraper(), assam_live.available()
+    elif city_id in chhattisgarh_live.CITY_PLANS:
+        return chhattisgarh_live.ChhattisgarhLiveScraper(), chhattisgarh_live.available()
+    elif city_id in karnataka_live.CITY_PLANS:
+        return karnataka_live.KarnatakaLiveScraper(), karnataka_live.available()
+    elif city_id in telangana_live.CITY_PLANS:
+        return telangana_live.TelanganaLiveScraper(), telangana_live.available()
+    return None, False
+
+
+def _get_all_supported_scrape_cities() -> list[str]:
+    from ..ingestion.scrapers.circle_rates import (
+        maharashtra_live, bihar_live, jharkhand_live, west_bengal_live, delhi_live, haryana_live, up_live,
+        tamil_nadu_live, gujarat_live, rajasthan_live, madhya_pradesh_live, kerala_live, uttarakhand_live,
+        goa_live, himachal_live, puducherry_live, odisha_live, assam_live, chhattisgarh_live,
+        karnataka_live, telangana_live
+    )
+    supported = []
+    supported.extend(maharashtra_live.CITY_PLANS.keys())
+    supported.extend(bihar_live.CITY_PLANS.keys())
+    supported.extend(jharkhand_live.CITY_PLANS.keys())
+    supported.extend(west_bengal_live.CITY_PLANS.keys())
+    supported.extend(delhi_live.CITY_PLANS.keys())
+    supported.extend(haryana_live.CITY_PLANS.keys())
+    supported.extend(up_live.CITY_PLANS.keys())
+    supported.extend(tamil_nadu_live.CITY_PLANS.keys())
+    supported.extend(gujarat_live.CITY_PLANS.keys())
+    supported.extend(rajasthan_live.CITY_PLANS.keys())
+    supported.extend(madhya_pradesh_live.CITY_PLANS.keys())
+    supported.extend(kerala_live.CITY_PLANS.keys())
+    supported.extend(uttarakhand_live.CITY_PLANS.keys())
+    supported.extend(goa_live.CITY_PLANS.keys())
+    supported.extend(himachal_live.CITY_PLANS.keys())
+    supported.extend(puducherry_live.CITY_PLANS.keys())
+    supported.extend(odisha_live.CITY_PLANS.keys())
+    supported.extend(assam_live.CITY_PLANS.keys())
+    supported.extend(chhattisgarh_live.CITY_PLANS.keys())
+    supported.extend(karnataka_live.CITY_PLANS.keys())
+    supported.extend(telangana_live.CITY_PLANS.keys())
+    return supported
+
+
 def _scrape_live_into_store(city_id: str, city_name: str) -> None:
     """Background worker: live-scrape circle rates and load them (real) into the store."""
     try:
-        from ..ingestion.scrapers.circle_rates.maharashtra_live import MaharashtraLiveASRScraper
-        obs = MaharashtraLiveASRScraper().fetch_city(city_id, city_name)
-        if obs:
-            PRICE_STORE.clear_city(city_id)
-            PRICE_STORE.put_many(obs)
+        scraper, avail = _get_scraper_for_city(city_id)
+        if scraper and avail:
+            obs = scraper.fetch_city(city_id, city_name)
+            if obs:
+                PRICE_STORE.clear_city(city_id)
+                PRICE_STORE.put_many(obs)
     except Exception:
         pass
 
@@ -163,23 +284,23 @@ async def scrape_live(city_id: str, background_tasks: BackgroundTasks) -> dict[s
     (real data → data_class='real', verification='live_fetched'). Runs in the
     background (the browser cascade is slow); results land in the price store.
 
-    Requires Playwright/Chromium in the server environment. For persistence across
-    restarts, use ``scripts/scrape_mh_easr.py`` to write a committed artifact."""
-    from ..ingestion.scrapers.circle_rates.maharashtra_live import available, CITY_PLANS
-
+    Requires Playwright/Chromium in the server environment."""
     city = get_city(city_id)
     if not city:
         raise HTTPException(status_code=404, detail=f"City '{city_id}' not found")
-    if not available():
+    
+    scraper, avail = _get_scraper_for_city(city_id)
+    if not scraper:
+        supported = _get_all_supported_scrape_cities()
+        raise HTTPException(status_code=400, detail={
+            "error": "no_scrape_plan",
+            "message": f"No live-scrape plan for '{city_id}'. Supported: {sorted(supported)}",
+        })
+    if not avail:
         raise HTTPException(status_code=503, detail={
             "error": "scraper_unavailable",
             "message": "Playwright/Chromium not installed in this environment. "
                        "pip install playwright && python -m playwright install chromium",
-        })
-    if city_id not in CITY_PLANS:
-        raise HTTPException(status_code=400, detail={
-            "error": "no_scrape_plan",
-            "message": f"No live-scrape plan for '{city_id}'. Supported: {sorted(CITY_PLANS)}",
         })
     background_tasks.add_task(_scrape_live_into_store, city_id, city["name"])
     return {"status": "scraping", "city_id": city_id,
@@ -195,8 +316,22 @@ async def refresh_city(city_id: str) -> dict[str, Any]:
 
     from ..ingestion.scrapers.circle_rates import (
         MaharashtraASRAdapter, KarnatakaKaveriAdapter, TelanganaIGRSAdapter,
+        BiharIGRAdapter, JharkhandRevenueAdapter, WestBengalIGRAdapter,
+        DelhiRevenueAdapter, HaryanaJamabandiAdapter, UPIGRSAdapter,
+        TamilNaduRegistrationAdapter, GujaratRegistrationAdapter, RajasthanRegistrationAdapter,
+        MadhyaPradeshRegistrationAdapter, KeralaRegistrationAdapter, UttarakhandRevenueAdapter,
+        GoaRegistrationAdapter, HimachalRevenueAdapter, PuducherryRegistrationAdapter,
+        OdishaRegistrationAdapter, AssamRevenueAdapter, ChhattisgarhRegistrationAdapter,
     )
-    adapters = [MaharashtraASRAdapter(), KarnatakaKaveriAdapter(), TelanganaIGRSAdapter()]
+    adapters = [
+        MaharashtraASRAdapter(), KarnatakaKaveriAdapter(), TelanganaIGRSAdapter(),
+        BiharIGRAdapter(), JharkhandRevenueAdapter(), WestBengalIGRAdapter(),
+        DelhiRevenueAdapter(), HaryanaJamabandiAdapter(), UPIGRSAdapter(),
+        TamilNaduRegistrationAdapter(), GujaratRegistrationAdapter(), RajasthanRegistrationAdapter(),
+        MadhyaPradeshRegistrationAdapter(), KeralaRegistrationAdapter(), UttarakhandRevenueAdapter(),
+        GoaRegistrationAdapter(), HimachalRevenueAdapter(), PuducherryRegistrationAdapter(),
+        OdishaRegistrationAdapter(), AssamRevenueAdapter(), ChhattisgarhRegistrationAdapter(),
+    ]
     new_obs = []
     for adapter in adapters:
         try:

@@ -1,0 +1,10 @@
+{
+  "source": "Goa Registration Department \u2014 Circle Rates live scrape (FY 2026)",
+  "source_url": "https://goa.gov.in",
+  "source_document": "Circle Rates",
+  "license": "GODL-India",
+  "state": "Goa",
+  "retrieved_at": "2026-06-03",
+  "method": "live scrape/extraction of official Goa Circle Rates",
+  "official": true
+}

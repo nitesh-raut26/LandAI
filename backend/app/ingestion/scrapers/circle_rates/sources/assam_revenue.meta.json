@@ -1,0 +1,10 @@
+{
+  "source": "Assam Revenue & Disaster Management Department \u2014 Circle Rates live scrape (FY 2026)",
+  "source_url": "https://assam.gov.in",
+  "source_document": "Circle Rates",
+  "license": "GODL-India",
+  "state": "Assam",
+  "retrieved_at": "2026-06-03",
+  "method": "live scrape/extraction of official Assam Circle Rates",
+  "official": true
+}

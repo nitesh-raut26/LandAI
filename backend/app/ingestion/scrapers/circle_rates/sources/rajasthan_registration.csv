@@ -1,0 +1,18 @@
+city_id,city_name,locality_name,value_inr_per_sqft,direction_hint,approx_distance_from_core_km,effective_date
+jaipur,Jaipur,C-Scheme,14000.0,S,5.0,2024-04-01
+jaipur,Jaipur,Malviya Nagar,9500.0,SE,5.0,2024-04-01
+jaipur,Jaipur,Mansarovar,7000.0,SW,5.0,2024-04-01
+jaipur,Jaipur,Vaishali Nagar,7800.0,W,5.0,2024-04-01
+jaipur,Jaipur,Jagatpura,5200.0,SE,5.0,2024-04-01
+jodhpur,Jodhpur,Sardarpura,5500.0,W,5.0,2024-04-01
+jodhpur,Jodhpur,Shastri Nagar,5000.0,SW,5.0,2024-04-01
+udaipur,Udaipur,Panchwati,4800.0,N,5.0,2024-04-01
+udaipur,Udaipur,Hiran Magri,3500.0,S,5.0,2024-04-01
+kota,Kota,Talwandi,3800.0,S,5.0,2024-04-01
+kota,Kota,Vigyan Nagar,3400.0,SE,5.0,2024-04-01
+ajmer,Ajmer,Vaishali Nagar,3200.0,NW,5.0,2024-04-01
+ajmer,Ajmer,Civil Lines,3500.0,N,5.0,2024-04-01
+bikaner,Bikaner,Sadul Ganj,2800.0,E,5.0,2024-04-01
+bikaner,Bikaner,Jayanarayan Vyas Colony,2500.0,SE,5.0,2024-04-01
+sikar,Sikar,Piprali Road,2400.0,E,5.0,2024-04-01
+sikar,Sikar,Radhakishanpura,2100.0,N,5.0,2024-04-01

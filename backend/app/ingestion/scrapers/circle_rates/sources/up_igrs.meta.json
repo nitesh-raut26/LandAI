@@ -1,0 +1,10 @@
+{
+  "source": "Uttar Pradesh Registration Department live scrape (FY 2026)",
+  "source_url": "https://igrsup.gov.in",
+  "source_document": "UP circle rates \u2014 open-land rate",
+  "license": "GODL-India",
+  "state": "Uttar Pradesh",
+  "retrieved_at": "2026-06-03",
+  "method": "live scrape/extraction of official UP rates",
+  "official": true
+}

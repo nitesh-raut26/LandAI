@@ -1,0 +1,10 @@
+{
+  "source": "Delhi Revenue Department live scrape (FY 2026)",
+  "source_url": "https://revenue.delhi.gov.in",
+  "source_document": "Delhi circle rates \u2014 open-land rate",
+  "license": "GODL-India",
+  "state": "Delhi",
+  "retrieved_at": "2026-06-03",
+  "method": "live scrape/extraction of official Delhi rates",
+  "official": true
+}

@@ -1,0 +1,12 @@
+city_id,city_name,locality_name,value_inr_per_sqft,direction_hint,approx_distance_from_core_km,effective_date
+gurgaon,Gurgaon,Golf Course Road,18000.0,SE,5.0,2024-04-01
+gurgaon,Gurgaon,DLF Phase 1,12500.0,E,5.0,2024-04-01
+gurgaon,Gurgaon,DLF Phase 5,12500.0,SE,5.0,2024-04-01
+gurgaon,Gurgaon,Sohna Road,7500.0,S,5.0,2024-04-01
+gurgaon,Gurgaon,Dwarka Expressway,8500.0,W,5.0,2024-04-01
+gurgaon,Gurgaon,Sector 82,5500.0,SW,5.0,2024-04-01
+gurgaon,Gurgaon,Gwal Pahari,6500.0,SE,5.0,2024-04-01
+faridabad,Faridabad,Sector 15,5800.0,N,5.0,2024-04-01
+faridabad,Faridabad,Sector 21,5200.0,W,5.0,2024-04-01
+faridabad,Faridabad,Surajkund,6500.0,NW,5.0,2024-04-01
+faridabad,Faridabad,Sector 82,3800.0,E,5.0,2024-04-01

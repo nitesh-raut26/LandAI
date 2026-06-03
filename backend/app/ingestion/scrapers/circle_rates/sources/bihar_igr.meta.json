@@ -1,0 +1,10 @@
+{
+  "source": "Bihar Registration Department \u2014 MVR live scrape (FY 2026)",
+  "source_url": "https://registration.bihar.gov.in",
+  "source_document": "Minimum Value Register \u2014 open-land rate",
+  "license": "GODL-India",
+  "state": "Bihar",
+  "retrieved_at": "2026-06-03",
+  "method": "live scrape/extraction of official Bihar MVR",
+  "official": true
+}

@@ -1,0 +1,13 @@
+city_id,city_name,locality_name,value_inr_per_sqft,direction_hint,approx_distance_from_core_km,effective_date
+kolkata,Kolkata,Alipore,16000.0,SW,6.0,2024-04-01
+kolkata,Kolkata,Ballygunge,14500.0,S,6.0,2024-04-01
+kolkata,Kolkata,Salt Lake,8500.0,E,6.0,2024-04-01
+kolkata,Kolkata,Rajarhat New Town,5500.0,NE,6.0,2024-04-01
+kolkata,Kolkata,Garia,4800.0,S,6.0,2024-04-01
+kolkata,Kolkata,Joka,3200.0,SW,6.0,2024-04-01
+siliguri,Siliguri,Sevoke Road,6500.0,N,6.0,2024-04-01
+siliguri,Siliguri,Matigara,4200.0,W,6.0,2024-04-01
+siliguri,Siliguri,Pradhan Nagar,5000.0,NW,6.0,2024-04-01
+durgapur,Durgapur,City Centre,3800.0,S,6.0,2024-04-01
+durgapur,Durgapur,Benachity,3200.0,N,6.0,2024-04-01
+durgapur,Durgapur,Muchipara,2500.0,E,6.0,2024-04-01

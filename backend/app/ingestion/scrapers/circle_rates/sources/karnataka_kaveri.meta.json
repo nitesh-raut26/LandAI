@@ -1,0 +1,10 @@
+{
+  "source": "Karnataka Kaveri Online Services \u2014 Guidance Value live scrape (FY 2026)",
+  "source_url": "https://kaverionline.karnataka.gov.in",
+  "source_document": "Guideline Value",
+  "license": "GODL-India",
+  "state": "Karnataka",
+  "retrieved_at": "2026-06-03",
+  "method": "live scrape/extraction of official Karnataka Kaveri Guidance Values",
+  "official": true
+}

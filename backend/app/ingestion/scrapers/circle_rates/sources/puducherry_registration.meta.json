@@ -1,10 +1,13 @@
 {
-  "source": "Puducherry Registration Department \u2014 Guideline live scrape (FY 2026)",
+  "source": "Puducherry Registration Department — Guideline live scrape (FY 2026)",
   "source_url": "https://puducherry.gov.in",
   "source_document": "Guideline Value",
   "license": "GODL-India",
   "state": "Puducherry",
   "retrieved_at": "2026-06-03",
-  "method": "live scrape/extraction of official Puducherry Guideline Values",
-  "official": true
+  "method": "UNVERIFIED — no live scraper / portal not reachable from ingestion env; uniform placeholder distance (not a genuine extraction); served as curated until verified against an official rate book",
+  "official": false,
+  "claimed_method": "live scrape/extraction of official Puducherry Guideline Values",
+  "verified": false,
+  "verification_checked_at": "2026-06-03"
 }

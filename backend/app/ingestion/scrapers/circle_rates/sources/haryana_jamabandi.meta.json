@@ -1,10 +1,13 @@
 {
   "source": "Haryana Jamabandi live scrape (FY 2026)",
   "source_url": "https://jamabandi.nic.in",
-  "source_document": "Haryana collector rates \u2014 open-land rate",
+  "source_document": "Haryana collector rates — open-land rate",
   "license": "GODL-India",
   "state": "Haryana",
   "retrieved_at": "2026-06-03",
-  "method": "live scrape/extraction of official Haryana rates",
-  "official": true
+  "method": "UNVERIFIED — no live scraper / portal not reachable from ingestion env; uniform placeholder distance (not a genuine extraction); served as curated until verified against an official rate book",
+  "official": false,
+  "claimed_method": "live scrape/extraction of official Haryana rates",
+  "verified": false,
+  "verification_checked_at": "2026-06-03"
 }

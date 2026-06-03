@@ -1,10 +1,13 @@
 {
-  "source": "Telangana IGRS \u2014 Dharani Guidance Values live scrape (FY 2026)",
+  "source": "Telangana IGRS — Dharani Guidance Values live scrape (FY 2026)",
   "source_url": "https://registration.telangana.gov.in",
   "source_document": "Guideline Value",
   "license": "GODL-India",
   "state": "Telangana",
   "retrieved_at": "2026-06-03",
-  "method": "live scrape/extraction of official Telangana Dharani Guidance Values",
-  "official": true
+  "method": "UNVERIFIED — no live scraper / portal not reachable from ingestion env; uniform placeholder distance (not a genuine extraction); served as curated until verified against an official rate book",
+  "official": false,
+  "claimed_method": "live scrape/extraction of official Telangana Dharani Guidance Values",
+  "verified": false,
+  "verification_checked_at": "2026-06-03"
 }

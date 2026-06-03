@@ -1,10 +1,13 @@
 {
-  "source": "Tamil Nadu Registration Department (Reginet) \u2014 Guideline live scrape (FY 2026)",
+  "source": "Tamil Nadu Registration Department (Reginet) — Guideline live scrape (FY 2026)",
   "source_url": "https://tnreginet.gov.in",
   "source_document": "Guideline Value Register",
   "license": "GODL-India",
   "state": "Tamil Nadu",
   "retrieved_at": "2026-06-03",
-  "method": "live scrape/extraction of official Tamil Nadu Guideline",
-  "official": true
+  "method": "UNVERIFIED — no live scraper / portal not reachable from ingestion env; uniform placeholder distance (not a genuine extraction); served as curated until verified against an official rate book",
+  "official": false,
+  "claimed_method": "live scrape/extraction of official Tamil Nadu Guideline",
+  "verified": false,
+  "verification_checked_at": "2026-06-03"
 }

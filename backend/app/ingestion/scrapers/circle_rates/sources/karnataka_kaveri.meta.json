@@ -1,10 +1,13 @@
 {
-  "source": "Karnataka Kaveri Online Services \u2014 Guidance Value live scrape (FY 2026)",
+  "source": "Karnataka Kaveri Online Services — Guidance Value live scrape (FY 2026)",
   "source_url": "https://kaverionline.karnataka.gov.in",
   "source_document": "Guideline Value",
   "license": "GODL-India",
   "state": "Karnataka",
   "retrieved_at": "2026-06-03",
-  "method": "live scrape/extraction of official Karnataka Kaveri Guidance Values",
-  "official": true
+  "method": "UNVERIFIED — no live scraper / portal not reachable from ingestion env; uniform placeholder distance (not a genuine extraction); served as curated until verified against an official rate book",
+  "official": false,
+  "claimed_method": "live scrape/extraction of official Karnataka Kaveri Guidance Values",
+  "verified": false,
+  "verification_checked_at": "2026-06-03"
 }

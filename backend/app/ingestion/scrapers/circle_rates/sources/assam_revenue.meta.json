@@ -1,10 +1,13 @@
 {
-  "source": "Assam Revenue & Disaster Management Department \u2014 Circle Rates live scrape (FY 2026)",
+  "source": "Assam Revenue & Disaster Management Department — Circle Rates live scrape (FY 2026)",
   "source_url": "https://assam.gov.in",
   "source_document": "Circle Rates",
   "license": "GODL-India",
   "state": "Assam",
   "retrieved_at": "2026-06-03",
-  "method": "live scrape/extraction of official Assam Circle Rates",
-  "official": true
+  "method": "UNVERIFIED — no live scraper / portal not reachable from ingestion env; uniform placeholder distance (not a genuine extraction); served as curated until verified against an official rate book",
+  "official": false,
+  "claimed_method": "live scrape/extraction of official Assam Circle Rates",
+  "verified": false,
+  "verification_checked_at": "2026-06-03"
 }

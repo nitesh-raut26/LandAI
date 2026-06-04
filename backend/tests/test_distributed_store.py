@@ -21,9 +21,7 @@ client = TestClient(app)
 
 
 def _fake():
-    # protocol=2 forces RESP2 so redis-py 8.x does NOT send HELLO 3 during
-    # the connection health-check — fakeredis 2.x has a bug with HELLO 3.
-    return fakeredis.FakeStrictRedis(decode_responses=True, protocol=2)
+    return fakeredis.FakeStrictRedis(decode_responses=True)
 
 
 def test_redis_code_path_counter_denylist_rate():
@@ -50,11 +48,9 @@ def test_redis_code_path_counter_denylist_rate():
 
 
 def test_cross_replica_shared_state():
-    # Two clients to the SAME fake server == two backend replicas sharing one Redis.
     server = fakeredis.FakeServer()
-    # protocol=2 — same reason as _fake() above: avoid HELLO 3 / fakeredis bug.
-    a = fakeredis.FakeStrictRedis(server=server, decode_responses=True, protocol=2)
-    b = fakeredis.FakeStrictRedis(server=server, decode_responses=True, protocol=2)
+    a = fakeredis.FakeStrictRedis(server=server, decode_responses=True)
+    b = fakeredis.FakeStrictRedis(server=server, decode_responses=True)
     try:
         store.use_redis(a)
         store.mark("dl:fam:shared", 60)            # replica A revokes a token family

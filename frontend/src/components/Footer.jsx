@@ -2,9 +2,6 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { TrendingUp, Code2, Check, ArrowRight, Cpu, Activity, Satellite, Globe2, Mail, BookOpen, AlertCircle } from 'lucide-react'
 
-const API_BASE = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
-  ? 'http://localhost:8000' : '/api-host'
-
 const TIERS = [
   {
     name: 'Developer', price: '₹0', unit: '/forever', highlight: false,

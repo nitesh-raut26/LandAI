@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from "react";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// Empty default => dev calls "/api/reports/..." through the Vite proxy; prod uses
+// VITE_API_URL (backend origin), giving "${VITE_API_URL}/api/reports/...".
+const API = import.meta.env.VITE_API_URL || "";
 
 const POLL_INTERVAL_MS = 1500;
 const MAX_POLLS = 40; // 60s timeout

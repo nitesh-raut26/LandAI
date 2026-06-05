@@ -6,7 +6,10 @@ import {
   getMockScore, getMockCopilot,
 } from './mockData'
 
-const BASE = '/api'
+// Dev: BASE is '/api' and the Vite proxy (vite.config.js) forwards to localhost:8000.
+// Prod: VITE_API_URL (.env.production) is the deployed backend origin, e.g.
+// https://api.landai.praxivo.in, so requests resolve to ${VITE_API_URL}/api/...
+const BASE = `${import.meta.env.VITE_API_URL || ''}/api`
 
 const api = axios.create({ baseURL: BASE, timeout: 6000 })
 

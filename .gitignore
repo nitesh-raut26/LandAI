@@ -9,6 +9,8 @@
 .env
 .env.*
 !.env.example
+# Public VITE_ backend URL (baked into the client bundle, not a secret) — must be committed for Vercel:
+!frontend/.env.production
 *.pem
 *.key
 secrets/

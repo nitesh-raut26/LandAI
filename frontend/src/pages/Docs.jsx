@@ -8,6 +8,10 @@ import { useAuth } from '../context/AuthContext'
 const TIER_COLOR = { developer: '#4338CA', pro: '#059669', enterprise: '#D97706' }
 const METHOD_COLOR = { GET: '#0D9488', POST: '#4338CA', DELETE: '#EF4444' }
 
+// Host shown in the docs/curl examples below: the deployed backend in production
+// (VITE_API_URL, e.g. https://api.landai.praxivo.in) or localhost during local dev.
+const API_HOST = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 // ── API reference ─────────────────────────────────────────────────────────
 const SECTIONS = [
   {
@@ -181,7 +185,7 @@ export default function Docs() {
           })}
         </nav>
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-faint)', marginTop: 8 }}>
-          <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-disabled)', textDecoration: 'none' }}>
+          <a href={`${API_HOST}/docs`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-disabled)', textDecoration: 'none' }}>
             <ExternalLink size={12} /> Swagger UI
           </a>
         </div>
@@ -200,7 +204,7 @@ export default function Docs() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 28 }}>
               {[
-                { label: 'Base URL', value: 'http://localhost:8000' },
+                { label: 'Base URL', value: API_HOST },
                 { label: 'Protocol', value: 'HTTPS / REST' },
                 { label: 'Format', value: 'JSON' },
                 { label: 'Auth', value: 'JWT Bearer + API Key' },
@@ -218,11 +222,11 @@ export default function Docs() {
 
             <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12, fontFamily: 'DM Sans' }}>Quick start</h2>
             <CodeBlock language="bash" code={`# Free — no auth needed
-curl "http://localhost:8000/api/cities/?tier=2&state=Maharashtra"
+curl "${API_HOST}/api/cities/?tier=2&state=Maharashtra"
 
 # With API key (get one at /keys after signing up)
 curl -H "X-API-Key: lk_live_YOUR_KEY" \\
-     "http://localhost:8000/api/v1/ml/pune"
+     "${API_HOST}/api/v1/ml/pune"
 `} />
 
             <h2 style={{ fontSize: 17, fontWeight: 700, margin: '28px 0 12px', fontFamily: 'DM Sans' }}>Tiers &amp; access</h2>
@@ -273,22 +277,22 @@ curl -H "X-API-Key: lk_live_YOUR_KEY" \\
 
             <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 10px', fontFamily: 'DM Sans' }}>JWT Bearer (web / interactive)</h2>
             <CodeBlock language="bash" code={`# 1. Register
-curl -X POST http://localhost:8000/api/auth/register \\
+curl -X POST ${API_HOST}/api/auth/register \\
   -H "Content-Type: application/json" \\
   -d '{"email":"you@example.com","password":"yourpassword"}'
 # → {"access_token":"eyJ…","refresh_token":"eyJ…","token_type":"bearer"}
 
 # 2. Call authenticated endpoints
 curl -H "Authorization: Bearer eyJ…" \\
-     http://localhost:8000/api/auth/me
+     ${API_HOST}/api/auth/me
 
 # 3. Refresh (access token expires in 30 min)
-curl -X POST http://localhost:8000/api/auth/refresh \\
+curl -X POST ${API_HOST}/api/auth/refresh \\
   -d '{"refresh_token":"eyJ…"}'`} />
 
             <h2 style={{ fontSize: 16, fontWeight: 700, margin: '22px 0 10px', fontFamily: 'DM Sans' }}>API Key (programmatic / metered)</h2>
             <CodeBlock language="bash" code={`# 1. Create a key (requires JWT)
-curl -X POST http://localhost:8000/api/keys \\
+curl -X POST ${API_HOST}/api/keys \\
   -H "Authorization: Bearer eyJ…" \\
   -H "Content-Type: application/json" \\
   -d '{"name":"production"}'
@@ -297,7 +301,7 @@ curl -X POST http://localhost:8000/api/keys \\
 
 # 2. Use the key on any /api/v1/* endpoint
 curl -H "X-API-Key: lk_live_YOUR_KEY" \\
-     http://localhost:8000/api/v1/city/pune`} />
+     ${API_HOST}/api/v1/city/pune`} />
             <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--bg-card2)', borderRadius: 9, border: '1px solid var(--border-faint)', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
               <strong>Security:</strong> API keys are stored as SHA-256 hashes — the plaintext is never logged or stored. Every successful API-key request returns quota headers: <code>X-Quota-Used</code>, <code>X-Quota-Remaining</code>, <code>X-RateLimit-Limit</code>.
             </div>

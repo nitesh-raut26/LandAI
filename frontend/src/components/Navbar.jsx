@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, BarChart2, GitCompare, TrendingUp, Menu, X, PieChart, User, BookOpen, LayoutDashboard, ShieldCheck } from 'lucide-react'
+import { MapPin, BarChart2, GitCompare, Menu, X, PieChart, User, BookOpen, LayoutDashboard, ShieldCheck } from 'lucide-react'
 import { fetchAllCities } from '../utils/api'
 import DataStatusBadge from './DataStatusBadge'
 import { useAuth } from '../context/AuthContext'
@@ -60,24 +60,30 @@ export default function Navbar() {
         }}
       >
         {/* Logo */}
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 11, flexShrink: 0 }}>
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, textDecoration: 'none' }}>
           <motion.div
-            whileHover={{ scale: 1.06, rotate: -3 }}
+            whileHover={{ scale: 1.05 }}
             transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-            style={{
-              width: 38, height: 38, borderRadius: 12, flexShrink: 0,
-              background: 'linear-gradient(135deg, #4338CA 0%, #0D9488 100%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 16px rgba(67, 56, 202, 0.28)',
-            }}
+            style={{ display: 'flex', alignItems: 'center' }}
           >
-            <TrendingUp size={18} color="#fff" strokeWidth={2.5} />
+            {/* Favicon icon */}
+            <img
+              src="/favicon.png"
+              alt="LandAI"
+              style={{
+                width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+                boxShadow: '0 4px 16px rgba(67, 56, 202, 0.28)',
+                objectFit: 'cover',
+              }}
+            />
           </motion.div>
+          {/* Wordmark */}
           <div>
             <div style={{
               fontFamily: 'DM Sans, Inter, sans-serif',
               fontWeight: 800, fontSize: 18, color: '#111827',
               letterSpacing: '-0.5px', lineHeight: 1.1,
+              paddingLeft: 8,
             }}>
               Land<span style={{
                 background: 'linear-gradient(135deg, #4338CA, #0D9488)',
@@ -86,7 +92,7 @@ export default function Navbar() {
                 backgroundClip: 'text',
               }}>AI</span>
             </div>
-            <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1, letterSpacing: '0.2px', fontWeight: 500 }}>
+            <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1, letterSpacing: '0.2px', fontWeight: 500, paddingLeft: 8 }}>
               India Urban Intelligence
             </div>
           </div>
